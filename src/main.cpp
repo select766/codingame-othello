@@ -249,6 +249,7 @@ public:
         return v;
     }
 
+    // 石の数の差。黒-白。
     int count_stone_diff() const
     {
         // when is_end(), this function is used for checking winner
@@ -378,8 +379,44 @@ public:
 };
 
 // 最も多くの石をひっくりかえすAI
-// class SearchGreedy : public SearchBase {
-// };
+class SearchGreedy : public SearchBase {
+public:
+    SearchGreedy()
+    {
+    }
+
+    string name() {
+        return "Greedy";
+    }
+
+    int search()
+    {
+        vector<int> move_list;
+        board.legal_moves(move_list);
+        if (move_list.empty())
+        {
+            return MOVE_PASS;
+        }
+        else
+        {
+            int bestmove = 0;
+            int bestcount = -1;
+            int player = board.turn();
+            for (auto move : move_list) {
+                UndoInfo undo_info;
+                board.do_move(move, undo_info);
+                int count = board.count_stone(player);
+                if (count > bestcount) {
+                    bestmove = move;
+                    bestcount = count;
+                }
+                board.undo_move(undo_info);
+            }
+
+            return bestmove;
+        }
+    }
+};
 
 #if defined(MODE_INTERACTIVE)
 int main()
@@ -455,8 +492,8 @@ int main()
 #elif defined(MODE_RANDOM_MATCH)
 int main()
 {
-    const int n_games = 100;
-    SearchBase *ais[] = {new SearchRandom(), new SearchRandom()};
+    const int n_games = 1000;
+    SearchBase *ais[] = {new SearchRandom(), new SearchGreedy()};
     int player_win_count[N_PLAYER] = {0};
     int color_win_count[N_PLAYER] = {0};
     int draw_count = 0;
