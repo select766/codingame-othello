@@ -84,7 +84,8 @@ public:
         set_hirate();
     }
 
-    void set(const Board& other) {
+    void set(const Board &other)
+    {
         memcpy(board, other.board, sizeof(board));
         total_stones = other.total_stones;
         _turn = other._turn;
@@ -352,12 +353,14 @@ class SearchRandom : public SearchBase
 {
     std::random_device seed_gen;
     mt19937 engine;
+
 public:
     SearchRandom() : seed_gen(), engine(seed_gen())
     {
     }
 
-    string name() {
+    string name()
+    {
         return "Random";
     }
 
@@ -379,13 +382,15 @@ public:
 };
 
 // 最も多くの石をひっくりかえすAI
-class SearchGreedy : public SearchBase {
+class SearchGreedy : public SearchBase
+{
 public:
     SearchGreedy()
     {
     }
 
-    string name() {
+    string name()
+    {
         return "Greedy";
     }
 
@@ -402,11 +407,13 @@ public:
             int bestmove = 0;
             int bestcount = -1;
             int player = board.turn();
-            for (auto move : move_list) {
+            for (auto move : move_list)
+            {
                 UndoInfo undo_info;
                 board.do_move(move, undo_info);
                 int count = board.count_stone(player);
-                if (count > bestcount) {
+                if (count > bestcount)
+                {
                     bestmove = move;
                     bestcount = count;
                 }
@@ -510,7 +517,7 @@ int main()
             int turn_player = board.turn() ^ black_player;
             SearchBase *ai = ais[turn_player];
             ai->board.set(board);
-            int move = ai->search();           
+            int move = ai->search();
 
             UndoInfo undo_info;
             board.do_move(move, undo_info);
@@ -520,7 +527,7 @@ int main()
         if (diff < 0)
         {
             // white wins
-            player_win_count[1-black_player]++;
+            player_win_count[1 - black_player]++;
             color_win_count[WHITE]++;
         }
         else if (diff > 0)
