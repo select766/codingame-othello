@@ -544,11 +544,8 @@ int main()
 #else
 int main()
 {
-    std::random_device seed_gen;
-    mt19937 engine(seed_gen());
-
-    int id; // player's color. BLACK / WHITE.
-    cin >> id;
+    int my_color; // player's color. BLACK / WHITE.
+    cin >> my_color;
     cin.ignore();
     int board_size;
     cin >> board_size;
@@ -559,15 +556,19 @@ int main()
         return 1;
     }
 
+    SearchBase *ai = new SearchGreedy();
     // game loop
     while (1)
     {
+        vector<string> position_lines;
         for (int i = 0; i < board_size; i++)
         {
             string line; // rows from top to bottom (viewer perspective).
             cin >> line;
             cin.ignore();
+            position_lines.push_back(line);
         }
+        ai->board.set_position_codingame(position_lines, my_color);
         int action_count; // number of legal actions for this turn.
         cin >> action_count;
         cin.ignore();
@@ -581,13 +582,8 @@ int main()
             actions.push_back(action);
         }
 
-        // Write an action using cout. DON'T FORGET THE "<< endl"
-        // To debug: cerr << "Debug messages..." << endl;
-        uniform_int_distribution<> dist(0, actions.size() - 1);
-
-        int action_idx = dist(engine);
-
-        cout << actions[action_idx] << endl; // a-h1-8
+        int bestmove = ai->search();
+        cout << move_to_str(bestmove) << endl; // a-h1-8
     }
 }
 #endif
