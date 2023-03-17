@@ -11,7 +11,7 @@
 				"${file}",
 				"-o",
 				"${fileDirname}/${fileBasenameNoExtension}",
-				"-DMODE_RANDOM_MATCH"
+				"-DMODE_MAKE_LEGAL_MOVE_TEST_DATA"
 			],
 			"options": {
 				"cwd": "${fileDirname}"

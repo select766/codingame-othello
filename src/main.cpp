@@ -137,6 +137,85 @@ public:
         this->_turn = turn;
     }
 
+    // 盤面を表現する、- (なし), O (白), X (黒)を64文字並べた文字列を返す
+    string get_position_string()
+    {
+        char str[BOARD_AREA+1];
+        str[BOARD_AREA] = '\0';
+        int i = 0;
+        for (int row = 0; row < BOARD_SIZE; row++)
+        {
+            for (int col = 0; col < BOARD_SIZE; col++)
+            {
+                char c = '-';
+                if (board[BLACK][i])
+                {
+                    c = 'X';
+                }
+                else if (board[WHITE][i])
+                {
+                    c = 'O';
+                }
+                str[i++] = c;
+            }
+        }
+
+        return string(str);
+    }
+
+    // get_position_string()の末尾に、" b"(黒の手番)または" w"(白の手番)を付加した文字列を返す
+    string get_position_string_with_turn()
+    {
+        string posstr = get_position_string();
+        if (this->turn() == BLACK)
+        {
+            return posstr + " b";
+        }
+        else
+        {
+            return posstr + " w";
+        }
+    }
+
+    // get_position_string()の結果を読み取る
+    void set_position_string(const string &position, int turn)
+    {
+        // 注意: パス情報については保存できない
+        const char* pchars = position.c_str();
+        memset(board, 0, N_PLAYER * BOARD_AREA * sizeof(int));
+        total_stones = 0;
+        int i = 0;
+        for (int row = 0; row < BOARD_SIZE; row++)
+        {
+            for (int col = 0; col < BOARD_SIZE; col++)
+            {
+                char c = pchars[i];
+                if (c == 'X')
+                {
+                    board[BLACK][i] = 1;
+                    total_stones++;
+                }
+                else if (c == 'O')
+                {
+                    board[WHITE][i] = 1;
+                    total_stones++;
+                }
+                i++;
+            }
+        }
+
+        last_pass[0] = false;
+        last_pass[1] = false;
+        this->_turn = turn;
+    }
+
+    // get_position_string_with_turn()の結果を読み取る
+    void set_position_string_with_turn(const string &position_with_turn)
+    {
+        char turn_char = position_with_turn[BOARD_AREA + 2];
+        set_position_string(position_with_turn, turn_char == 'b' ? BLACK : WHITE); // 余分な文字がついていても先頭64文字しか見ない
+    }
+
     void do_move(int move, UndoInfo &undo_info)
     {
         memcpy(undo_info.board, board, sizeof(board));
@@ -626,6 +705,61 @@ int main()
     cout << "Summary" << endl;
     cout << ais[0]->name() << " - " << ais[1]->name() << " : " << player_win_count[0] << " - " << draw_count << " - " << player_win_count[1] << endl;
     cout << "black - white : " << color_win_count[0] << " - " << color_win_count[1] << endl;
+
+    return 0;
+}
+#elif defined(MODE_MAKE_LEGAL_MOVE_TEST_DATA)
+// 合法手生成のテストデータを作る。高速化したときに不具合が混入していないかどうかのチェックのため。
+int main()
+{
+    const int n_games = 1000;
+    for (int i = 0; i < n_games; i++)
+    {
+        Board board;
+        board.set_hirate();
+
+        while (!board.is_end())
+        {
+            // 現在局面を出力
+            cout << board.get_position_string_with_turn() << "/";
+            // 合法手を列挙
+            vector<int> move_list;
+            board.legal_moves(move_list);
+            if (move_list.empty())
+            {
+                cout << "pass" << endl;
+                UndoInfo undo_info;
+                board.do_move(MOVE_PASS, undo_info);
+                continue;
+            }
+            // 合法手リストを出力(カンマ区切り)
+            bool first_move = true;
+            for (auto move : move_list)
+            {
+                if (!first_move)
+                {
+                    cout << ",";
+                }
+                else
+                {
+                    first_move = false;
+                }
+                cout << move_to_str(move);
+            }
+            // 各合法手で1手進めた局面を出力（局面は戻す）
+            for (auto move : move_list)
+            {
+                UndoInfo undo_info;
+                board.do_move(move, undo_info);
+                cout << "/" << board.get_position_string_with_turn();
+                board.undo_move(undo_info);
+            }
+            cout << endl;
+            // 合法手からランダムに1つ選び、局面を進める
+            UndoInfo undo_info;
+            board.do_move(move_list[i % int(move_list.size())], undo_info);
+        }
+    }
 
     return 0;
 }

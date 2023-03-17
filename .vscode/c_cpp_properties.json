@@ -6,7 +6,7 @@
                 "${workspaceFolder}/**"
             ],
             "defines": [
-                "MODE_RANDOM_MATCH"
+                "MODE_MAKE_LEGAL_MOVE_TEST_DATA"
             ],
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",
