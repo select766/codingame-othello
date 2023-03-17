@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <random>
 #include <cstring>
+#include <sstream>
+#include <chrono>
 
 #define BOARD_SIZE 8
 #define BOARD_AREA 64
@@ -344,7 +346,7 @@ class SearchBase
 {
 public:
     Board board;
-    virtual int search() = 0;
+    virtual int search(string &msg) = 0;
     virtual string name() = 0;
 };
 
@@ -364,7 +366,7 @@ public:
         return "Random";
     }
 
-    int search()
+    int search(string &msg)
     {
         vector<int> move_list;
         board.legal_moves(move_list);
@@ -394,7 +396,7 @@ public:
         return "Greedy";
     }
 
-    int search()
+    int search(string &msg)
     {
         vector<int> move_list;
         board.legal_moves(move_list);
@@ -422,6 +424,84 @@ public:
 
             return bestmove;
         }
+    }
+};
+
+// 固定深さでアルファベータ法で探索するAI
+class SearchAlphaBetaConstantDepth : public SearchBase
+{
+    std::random_device seed_gen;
+    mt19937 engine;
+    uniform_int_distribution<> dist;
+
+public:
+    SearchAlphaBetaConstantDepth() : seed_gen(), engine(seed_gen()), dist(0, 255)
+    {
+    }
+
+    string name()
+    {
+        return "AlphaBetaConstantDepth";
+    }
+
+    int search(string &msg)
+    {
+        vector<int> move_list;
+        board.legal_moves(move_list);
+        if (move_list.empty())
+        {
+            return MOVE_PASS;
+        }
+        else
+        {
+            auto search_start_time = chrono::system_clock::now();
+            int bestmove;
+            int score = alphabeta(5, -100000, 100000, &bestmove) / 256;
+            auto search_end_time = chrono::system_clock::now();
+            auto search_duration = search_end_time - search_start_time;
+            stringstream ss;
+            ss << "score " << score << " time " << chrono::duration_cast<chrono::milliseconds>(search_duration).count() << " ms";
+            msg = ss.str();
+
+            return bestmove;
+        }
+    }
+
+    int alphabeta(int depth, int alpha, int beta, int *bestmove)
+    {
+        if (board.is_end() || depth == 0)
+        {
+            // 黒から見たスコアなので、手番から見たスコアにする
+            // 乱数要素がないと強さ測定が難しいので入れている
+            int score = board.count_stone_diff() * 256 + dist(engine);
+            if (board.turn() != BLACK) {
+                score = -score;
+            }
+            return score;
+        }
+
+        vector<int> move_list;
+        board.legal_moves(move_list);
+        if (move_list.empty())
+        {
+            move_list.push_back(MOVE_PASS);
+        }
+        for (auto move : move_list) {
+            UndoInfo undo_info;
+            board.do_move(move, undo_info);
+            int child_score = -alphabeta(depth - 1, -beta, -alpha, nullptr);
+            board.undo_move(undo_info);
+            if (child_score > alpha) {
+                if (bestmove != nullptr) {
+                    *bestmove = move;
+                }
+                alpha = child_score;
+            }
+            if (alpha >= beta) {
+                return alpha;
+            }
+        }
+        return alpha;
     }
 };
 
@@ -499,8 +579,8 @@ int main()
 #elif defined(MODE_RANDOM_MATCH)
 int main()
 {
-    const int n_games = 1000;
-    SearchBase *ais[] = {new SearchRandom(), new SearchGreedy()};
+    const int n_games = 100;
+    SearchBase *ais[] = {new SearchRandom(), new SearchAlphaBetaConstantDepth()};
     int player_win_count[N_PLAYER] = {0};
     int color_win_count[N_PLAYER] = {0};
     int draw_count = 0;
@@ -517,7 +597,8 @@ int main()
             int turn_player = board.turn() ^ black_player;
             SearchBase *ai = ais[turn_player];
             ai->board.set(board);
-            int move = ai->search();
+            string msg;
+            int move = ai->search(msg);
 
             UndoInfo undo_info;
             board.do_move(move, undo_info);
@@ -563,7 +644,7 @@ int main()
         return 1;
     }
 
-    SearchBase *ai = new SearchGreedy();
+    SearchBase *ai = new SearchAlphaBetaConstantDepth();
     // game loop
     while (1)
     {
@@ -589,8 +670,9 @@ int main()
             actions.push_back(action);
         }
 
-        int bestmove = ai->search();
-        cout << move_to_str(bestmove) << endl; // a-h1-8
+        string msg;
+        int bestmove = ai->search(msg);
+        cout << move_to_str(bestmove) << " MSG " << msg << endl; // a-h1-8
     }
 }
 #endif
