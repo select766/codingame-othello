@@ -2,6 +2,8 @@
 #define _SEARCH_BASE_
 #include "board.hpp"
 
+#define MAX_LEGAL_MOVES 32 // 一局面に対する合法手として想定する最大数
+
 // AIのインターフェース
 class SearchBase
 {

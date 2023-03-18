@@ -12,7 +12,7 @@ all: $(OUTDIR)/codingame $(OUTDIR)/interactive $(OUTDIR)/legal_move_test $(OUTDI
 clean:
 	rm -rf $(OUTDIR)/* $(SRCDIR)/*.o
 
-.cpp.o:
+%.o: %.cpp $(HEADERS)
 	g++ -c $(CFLAGS) -o $@ $<
 
 $(OUTDIR)/codingame.cpp: src/main_codingame.cpp $(HEADERS)

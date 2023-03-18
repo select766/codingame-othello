@@ -9,9 +9,10 @@ class SearchAlphaBetaConstantDepth : public SearchBase
     mt19937 engine;
     uniform_int_distribution<> dist;
     int node_count; // 評価関数を呼び出した回数
+    int depth;
 
 public:
-    SearchAlphaBetaConstantDepth() : seed_gen(), engine(seed_gen()), dist(0, 255)
+    SearchAlphaBetaConstantDepth(int depth = 5) : seed_gen(), engine(seed_gen()), dist(0, 255), depth(depth)
     {
     }
 
@@ -33,7 +34,7 @@ public:
         {
             auto search_start_time = chrono::system_clock::now();
             int bestmove;
-            int score = alphabeta(5, -100000, 100000, &bestmove) / 256;
+            int score = alphabeta(depth, -100000, 100000, &bestmove) / 256;
             auto search_end_time = chrono::system_clock::now();
             auto search_duration = search_end_time - search_start_time;
             stringstream ss;
