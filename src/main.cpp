@@ -50,7 +50,7 @@ class UndoInfo
 public:
     BoardPlane planes[N_PLAYER];
     int turn; // BLACK / WHITE
-    int last_pass;
+    int pass_count;
 };
 
 
@@ -80,7 +80,7 @@ class Board
 {
     BoardPlane planes[N_PLAYER];
     int _turn; // BLACK / WHITE
-    int _last_pass; // bit0: BLACKが前回パスした、bit1: WHITEが前回パスした
+    int _pass_count; // 連続パス回数
 
 public:
     Board()
@@ -93,7 +93,7 @@ public:
         planes[0] = other.planes[0];
         planes[1] = other.planes[1];
         _turn = other._turn;
-        _last_pass = other._last_pass;
+        _pass_count = other._pass_count;
     }
 
     int turn() const
@@ -109,7 +109,7 @@ public:
         planes[BLACK] |= position_plane(R_D + C_5);
         planes[WHITE] |= position_plane(R_E + C_5);
         _turn = BLACK;
-        _last_pass = 0;
+        _pass_count = 0;
     }
 
     void set_position_codingame(const vector<string> &lines, int turn)
@@ -131,7 +131,7 @@ public:
         }
         // 相手が最後にパスしている可能性もあるが、codingameで指し手を求められるのは合法手がある場合のみであり、指し手生成に影響なし。
         this->_turn = turn;
-        _last_pass = 0;
+        _pass_count = 0;
     }
 
     // 盤面を表現する、- (なし), O (白), X (黒)を64文字並べた文字列を返す
@@ -199,7 +199,7 @@ public:
         }
 
         this->_turn = turn;
-        _last_pass = 0;
+        _pass_count = 0;
     }
 
     // get_position_string_with_turn()の結果を読み取る
@@ -214,18 +214,18 @@ public:
         undo_info.planes[0] = planes[0];
         undo_info.planes[1] = planes[1];
         undo_info.turn = _turn;
-        undo_info.last_pass = _last_pass;
+        undo_info.pass_count = _pass_count;
         if (!move_is_pass(move))
         {
             BoardPlane player = planes[_turn], opponent = planes[1 - _turn], position = position_plane(move);
             BoardPlane reverse_plane = reverse(player, opponent, position);
             planes[_turn] = player ^ position ^ reverse_plane;
             planes[1 - _turn] = opponent ^ reverse_plane;
-            _last_pass &= ~(1 << _turn);
+            _pass_count = 0;
         }
         else
         {
-            _last_pass |= 1 << _turn;
+            _pass_count++;
         }
         _turn = 1 - _turn;
     }
@@ -235,7 +235,7 @@ public:
         planes[0] = undo_info.planes[0];
         planes[1] = undo_info.planes[1];
         _turn = undo_info.turn;
-        _last_pass = undo_info.last_pass;
+        _pass_count = undo_info.pass_count;
     }
 
     // 合法手を列挙する。
@@ -287,7 +287,7 @@ public:
 
     bool is_end() const
     {
-        if (_last_pass == 3)
+        if (_pass_count == 2)
         {
             return true;
         }
