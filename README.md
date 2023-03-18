@@ -1,20 +1,30 @@
 # codingame-othello
 CodingameのOthello(オセロ)タスクのAI
 
+# codingame提出用ファイル作成
+
+複数のソースファイルに分かれているが、単一のファイルにまとめる必要がある。
+
+```
+make
+```
+
+`build/codingame.cpp`が成果物。
+
 # 合法手チェック
 
 ## データ生成
 
-正しく動作するコミットにおいて、`MODE_MAKE_LEGAL_MOVE_TEST_DATA`マクロを定義した状態でビルド
+正しく動作するコミットにおいて
 
 ```
-./src/main > dataset/legal_move_dataset.txt
+./build/make_legal_move_test_data > dataset/legal_move_dataset.txt
 ```
 
 ## チェック
 
-検証したいコミットにおいて、`MODE_LEGAL_MOVE_TEST`マクロを定義した状態でビルド
+検証したいコミットにおいて
 
 ```
-./src/main < dataset/legal_move_dataset.txt
+./build/legal_move_test < dataset/legal_move_dataset.txt
 ```

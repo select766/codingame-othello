@@ -31,5 +31,6 @@
 *.out
 *.app
 
-/src/main
+/src/*.o
 /dataset
+/build
