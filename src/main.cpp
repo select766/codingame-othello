@@ -37,7 +37,7 @@ using BoardPlane = uint64_t;
 
 BoardPlane position_plane(int pos)
 {
-    return 1UL << pos;
+    return 1ULL << pos;
 }
 
 inline bool move_is_pass(int move)
@@ -79,7 +79,6 @@ int move_from_str(const string &move_str)
     }
     return (move_str[0] - 'a') + (move_str[1] - '1') * BOARD_SIZE;
 }
-
 
 class Board
 {
@@ -235,10 +234,10 @@ public:
         undo_info.last_pass[1] = last_pass[1];
         if (!move_is_pass(move))
         {
-            BoardPlane player = planes[_turn], opponent = planes[1-_turn], position = position_plane(move);
+            BoardPlane player = planes[_turn], opponent = planes[1 - _turn], position = position_plane(move);
             BoardPlane reverse_plane = reverse(player, opponent, position);
             planes[_turn] = player ^ position ^ reverse_plane;
-            planes[1-_turn] = opponent ^ reverse_plane;
+            planes[1 - _turn] = opponent ^ reverse_plane;
             total_stones++;
             last_pass[_turn] = 0;
         }
@@ -284,7 +283,7 @@ public:
     {
         result = 0;
         BoardPlane buffer;
-        BoardPlane player = planes[_turn], opponent = planes[1-_turn];
+        BoardPlane player = planes[_turn], opponent = planes[1 - _turn];
         legal_calc(result, buffer, player, opponent, 0x7e7e7e7e7e7e7e7e, 1);
         legal_calc(result, buffer, player, opponent, 0x007e7e7e7e7e7e00, 7);
         legal_calc(result, buffer, player, opponent, 0x00ffffffffffff00, 8);
@@ -295,7 +294,7 @@ public:
 
     bool can_move(int move) const
     {
-        BoardPlane player = planes[_turn], opponent = planes[1-_turn], position = position_plane(move);
+        BoardPlane player = planes[_turn], opponent = planes[1 - _turn], position = position_plane(move);
         if ((player | opponent) & position)
         {
             // すでにある場所には置けない
@@ -363,7 +362,7 @@ public:
     }
 
 private:
-    template<typename ShiftFunc>
+    template <typename ShiftFunc>
     void line(BoardPlane &result, BoardPlane position, BoardPlane mask, ShiftFunc shift, int n) const
     {
         result = mask & shift(position, n);
@@ -377,21 +376,33 @@ private:
     void legal_calc(BoardPlane &result, BoardPlane &buffer, BoardPlane player, BoardPlane opponent, BoardPlane mask, int n) const
     {
         BoardPlane _mask = opponent & mask;
-        line(buffer, player, _mask, [](BoardPlane p, int c){return p << c;}, n);
+        line(
+            buffer, player, _mask, [](BoardPlane p, int c)
+            { return p << c; },
+            n);
         result |= buffer << n;
-        line(buffer, player, _mask, [](BoardPlane p, int c){return p >> c;}, n);
+        line(
+            buffer, player, _mask, [](BoardPlane p, int c)
+            { return p >> c; },
+            n);
         result |= buffer >> n;
     }
 
     void reverse_calc(BoardPlane &result, BoardPlane &buffer, BoardPlane s, BoardPlane opponent, BoardPlane position, BoardPlane mask, int n) const
     {
         BoardPlane _mask = opponent & mask;
-        line(buffer, position, _mask, [](BoardPlane p, int c){return p << c;}, n);
+        line(
+            buffer, position, _mask, [](BoardPlane p, int c)
+            { return p << c; },
+            n);
         if (s & (buffer << n))
         {
             result |= buffer;
         }
-        line(buffer, position, _mask, [](BoardPlane p, int c){return p >> c;}, n);
+        line(
+            buffer, position, _mask, [](BoardPlane p, int c)
+            { return p >> c; },
+            n);
         if (s & (buffer >> n))
         {
             result |= buffer;
@@ -588,9 +599,9 @@ class SearchAlphaBetaIterative : public SearchBase
     std::random_device seed_gen;
     mt19937 engine;
     uniform_int_distribution<> dist;
-    int node_count; // 評価関数を呼び出した回数
+    int node_count;    // 評価関数を呼び出した回数
     int time_limit_ms; // 探索時間の制限[ms]。これを超えたことを検知したら探索を終了する。ルール上の制限時間より短く設定する必要がある。
-    bool stop; // 探索の内部で、時間切れなどで中断すべき場合にtrueにセットする。
+    bool stop;         // 探索の内部で、時間切れなどで中断すべき場合にtrueにセットする。
     int check_time_skip;
     chrono::system_clock::time_point time_to_stop_search; // 探索を終了すべき時刻
 
@@ -641,8 +652,8 @@ public:
             return bestmove;
         }
     }
-private:
 
+private:
     bool check_stop()
     {
         if (stop)
@@ -687,14 +698,11 @@ private:
             return 0;
         }
 
-        vector<int> move_list;
-        board.legal_moves(move_list);
-        if (move_list.empty())
+        BoardPlane move_bb;
+        board.legal_moves_bb(move_bb);
+        if (!move_bb)
         {
-            move_list.push_back(MOVE_PASS);
-        }
-        for (auto move : move_list)
-        {
+            int move = MOVE_PASS;
             UndoInfo undo_info;
             board.do_move(move, undo_info);
             int child_score = -alphabeta(depth - 1, -beta, -alpha, nullptr);
@@ -710,6 +718,32 @@ private:
             if (alpha >= beta)
             {
                 return alpha;
+            }
+        }
+        else
+        {
+            for (int move = 0; move < BOARD_AREA; move++)
+            {
+                if (!(move_bb & position_plane(move)))
+                {
+                    continue;
+                }
+                UndoInfo undo_info;
+                board.do_move(move, undo_info);
+                int child_score = -alphabeta(depth - 1, -beta, -alpha, nullptr);
+                board.undo_move(undo_info);
+                if (child_score > alpha)
+                {
+                    if (bestmove != nullptr)
+                    {
+                        *bestmove = move;
+                    }
+                    alpha = child_score;
+                }
+                if (alpha >= beta)
+                {
+                    return alpha;
+                }
             }
         }
         return alpha;
