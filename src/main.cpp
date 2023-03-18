@@ -49,14 +49,10 @@ class UndoInfo
 {
 public:
     BoardPlane planes[N_PLAYER];
-    int total_stones;
     int turn; // BLACK / WHITE
-    bool last_pass[N_PLAYER];
+    int last_pass;
 };
 
-#define N_DIR 8
-const int dirsx[N_DIR] = {-1, 0, 1, -1, 1, -1, 0, 1};
-const int dirsy[N_DIR] = {-1, -1, -1, 0, 0, 1, 1, 1};
 
 string move_to_str(int move)
 {
@@ -83,9 +79,8 @@ int move_from_str(const string &move_str)
 class Board
 {
     BoardPlane planes[N_PLAYER];
-    int total_stones;
     int _turn; // BLACK / WHITE
-    bool last_pass[N_PLAYER];
+    int _last_pass; // bit0: BLACKが前回パスした、bit1: WHITEが前回パスした
 
 public:
     Board()
@@ -97,9 +92,8 @@ public:
     {
         planes[0] = other.planes[0];
         planes[1] = other.planes[1];
-        total_stones = other.total_stones;
         _turn = other._turn;
-        memcpy(last_pass, other.last_pass, sizeof(last_pass));
+        _last_pass = other._last_pass;
     }
 
     int turn() const
@@ -114,17 +108,14 @@ public:
         planes[BLACK] |= position_plane(R_E + C_4);
         planes[BLACK] |= position_plane(R_D + C_5);
         planes[WHITE] |= position_plane(R_E + C_5);
-        total_stones = 4;
-        last_pass[0] = false;
-        last_pass[1] = false;
         _turn = BLACK;
+        _last_pass = 0;
     }
 
     void set_position_codingame(const vector<string> &lines, int turn)
     {
         // lines[0]: a1 to h1, '.' = nothing, '0' = black, '1' = white
         planes[0] = planes[1] = 0;
-        total_stones = 0;
         for (int row = 0; row < BOARD_SIZE; row++)
         {
             for (int col = 0; col < BOARD_SIZE; col++)
@@ -136,13 +127,11 @@ public:
                 }
                 int color = c - '0';
                 planes[color] |= position_plane(row * BOARD_SIZE + col);
-                total_stones++;
             }
         }
         // 相手が最後にパスしている可能性もあるが、codingameで指し手を求められるのは合法手がある場合のみであり、指し手生成に影響なし。
-        last_pass[0] = false;
-        last_pass[1] = false;
         this->_turn = turn;
+        _last_pass = 0;
     }
 
     // 盤面を表現する、- (なし), O (白), X (黒)を64文字並べた文字列を返す
@@ -191,7 +180,6 @@ public:
         // 注意: パス情報については保存できない
         const char *pchars = position.c_str();
         planes[0] = planes[1] = 0;
-        total_stones = 0;
         int i = 0;
         for (int row = 0; row < BOARD_SIZE; row++)
         {
@@ -201,20 +189,17 @@ public:
                 if (c == 'X')
                 {
                     planes[BLACK] |= position_plane(i);
-                    total_stones++;
                 }
                 else if (c == 'O')
                 {
                     planes[WHITE] |= position_plane(i);
-                    total_stones++;
                 }
                 i++;
             }
         }
 
-        last_pass[0] = false;
-        last_pass[1] = false;
         this->_turn = turn;
+        _last_pass = 0;
     }
 
     // get_position_string_with_turn()の結果を読み取る
@@ -228,22 +213,19 @@ public:
     {
         undo_info.planes[0] = planes[0];
         undo_info.planes[1] = planes[1];
-        undo_info.total_stones = total_stones;
         undo_info.turn = _turn;
-        undo_info.last_pass[0] = last_pass[0];
-        undo_info.last_pass[1] = last_pass[1];
+        undo_info.last_pass = _last_pass;
         if (!move_is_pass(move))
         {
             BoardPlane player = planes[_turn], opponent = planes[1 - _turn], position = position_plane(move);
             BoardPlane reverse_plane = reverse(player, opponent, position);
             planes[_turn] = player ^ position ^ reverse_plane;
             planes[1 - _turn] = opponent ^ reverse_plane;
-            total_stones++;
-            last_pass[_turn] = 0;
+            _last_pass &= ~(1 << _turn);
         }
         else
         {
-            last_pass[_turn] = 1;
+            _last_pass |= 1 << _turn;
         }
         _turn = 1 - _turn;
     }
@@ -252,10 +234,8 @@ public:
     {
         planes[0] = undo_info.planes[0];
         planes[1] = undo_info.planes[1];
-        total_stones = undo_info.total_stones;
         _turn = undo_info.turn;
-        last_pass[0] = undo_info.last_pass[0];
-        last_pass[1] = undo_info.last_pass[1];
+        _last_pass = undo_info.last_pass;
     }
 
     // 合法手を列挙する。
@@ -307,11 +287,11 @@ public:
 
     bool is_end() const
     {
-        if (last_pass[0] && last_pass[1])
+        if (_last_pass == 3)
         {
             return true;
         }
-        if (total_stones == BOARD_AREA)
+        if (~(planes[0] | planes[1]) == 0)
         {
             return true;
         }
