@@ -32,7 +32,7 @@ public:
             {
                 UndoInfo undo_info;
                 board.do_move(move, undo_info);
-                int count = board.count_stone(player);
+                int count = board.piece_num(player);
                 if (count > bestcount)
                 {
                     bestmove = move;

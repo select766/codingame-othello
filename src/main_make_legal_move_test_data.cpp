@@ -9,7 +9,7 @@ int main()
         Board board;
         board.set_hirate();
 
-        while (!board.is_end())
+        while (!board.is_gameover())
         {
             // 現在局面を出力
             cout << board.get_position_string_with_turn() << "/";

@@ -16,6 +16,7 @@
 #define N_PLAYER 2
 #define BLACK 0
 #define WHITE 1
+#define DRAW 2
 #define R_A 0
 #define R_B 1
 #define R_C 2
@@ -286,7 +287,7 @@ public:
         return reverse_plane ? true : false;
     }
 
-    bool is_end() const
+    bool is_gameover() const
     {
         if (_pass_count == 2)
         {
@@ -299,17 +300,42 @@ public:
         return false;
     }
 
-    int count_stone(int color) const
+    int piece_sum() const
+    {
+        return __builtin_popcountll(planes[BLACK]) + __builtin_popcountll(planes[WHITE]);
+    }
+
+    // 手番側の石の数
+    int piece_num() const
+    {
+        return __builtin_popcountll(planes[_turn]);
+    }
+
+    int piece_num(int color) const
     {
         return __builtin_popcountll(planes[color]);
     }
 
-    // 石の数の差。黒-白。
+    // 石の数の差。手番側-相手側。
     int count_stone_diff() const
     {
-        // when is_end(), this function is used for checking winner
-        // ret > 0: BLACK wins, ret < 0: WHITE wins, ret == 0: draw
-        return count_stone(BLACK) - count_stone(WHITE);
+        return piece_num(_turn) - piece_num(1-_turn);
+    }
+
+    // 勝者。BLACK/WHITE/DRAW
+    int winner() const
+    {
+        // is_gameover()のチェックはしない
+        int v = piece_num(BLACK) - piece_num(WHITE);
+        if (v > 0)
+        {
+            return BLACK;
+        }
+        else if (v < 0)
+        {
+            return WHITE;
+        }
+        return DRAW;
     }
 
     string pretty_print() const

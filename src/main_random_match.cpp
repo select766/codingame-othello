@@ -15,7 +15,7 @@ int main()
 
         int black_player = i % 2;
 
-        while (!board.is_end())
+        while (!board.is_gameover())
         {
             int turn_player = board.turn() ^ black_player;
             SearchBase *ai = ais[turn_player];
@@ -27,14 +27,14 @@ int main()
             board.do_move(move, undo_info);
         }
 
-        int diff = board.count_stone_diff();
-        if (diff < 0)
+        int winner = board.winner();
+        if (winner == WHITE)
         {
             // white wins
             player_win_count[1 - black_player]++;
             color_win_count[WHITE]++;
         }
-        else if (diff > 0)
+        else if (winner == BLACK)
         {
             // black wins
             player_win_count[black_player]++;

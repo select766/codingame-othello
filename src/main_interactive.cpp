@@ -5,7 +5,7 @@ int main()
     Board board;
     board.set_hirate();
 
-    while (!board.is_end())
+    while (!board.is_gameover())
     {
         cout << board.pretty_print();
         cout << "Your turn: "
@@ -53,13 +53,13 @@ int main()
     }
 
     cout << board.pretty_print();
-    cout << "End: " << board.count_stone(BLACK) << " - " << board.count_stone(WHITE) << endl;
-    int diff = board.count_stone_diff();
-    if (diff < 0)
+    cout << "End: " << board.piece_num(BLACK) << " - " << board.piece_num(WHITE) << endl;
+    int winner = board.winner();
+    if (winner == WHITE)
     {
         cout << "WHITE wins" << endl;
     }
-    else if (diff > 0)
+    else if (winner == BLACK)
     {
         cout << "BLACK wins" << endl;
     }

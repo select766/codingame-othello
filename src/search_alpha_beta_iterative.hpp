@@ -89,15 +89,10 @@ private:
 
     int alphabeta(int depth, int alpha, int beta, int *bestmove)
     {
-        if (board.is_end() || depth == 0)
+        if (board.is_gameover() || depth == 0)
         {
-            // 黒から見たスコアなので、手番から見たスコアにする
             // 乱数要素がないと強さ測定が難しいので入れている
             int score = board.count_stone_diff() * 256 + dist(engine);
-            if (board.turn() != BLACK)
-            {
-                score = -score;
-            }
             node_count++;
             return score;
         }
