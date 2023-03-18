@@ -32,6 +32,13 @@
 
 using namespace std;
 
+using BoardPlane = uint64_t;
+
+BoardPlane position_plane(int pos)
+{
+    return 1UL << pos;
+}
+
 inline bool move_is_pass(int move)
 {
     return move == MOVE_PASS;
@@ -40,7 +47,7 @@ inline bool move_is_pass(int move)
 class UndoInfo
 {
 public:
-    int board[N_PLAYER][BOARD_AREA]; // 手番、各マスの石の有無
+    BoardPlane planes[N_PLAYER];
     int total_stones;
     int turn; // BLACK / WHITE
     bool last_pass[N_PLAYER];
@@ -72,10 +79,10 @@ int move_from_str(const string &move_str)
     return (move_str[0] - 'a') + (move_str[1] - '1') * BOARD_SIZE;
 }
 
+
 class Board
 {
-    // TODO bitboard
-    int board[N_PLAYER][BOARD_AREA]; // 手番、各マスの石の有無
+    BoardPlane planes[N_PLAYER];
     int total_stones;
     int _turn; // BLACK / WHITE
     bool last_pass[N_PLAYER];
@@ -88,7 +95,8 @@ public:
 
     void set(const Board &other)
     {
-        memcpy(board, other.board, sizeof(board));
+        planes[0] = other.planes[0];
+        planes[1] = other.planes[1];
         total_stones = other.total_stones;
         _turn = other._turn;
         memcpy(last_pass, other.last_pass, sizeof(last_pass));
@@ -101,11 +109,11 @@ public:
 
     void set_hirate()
     {
-        memset(board, 0, N_PLAYER * BOARD_AREA * sizeof(int));
-        board[WHITE][R_D + C_4] = 1;
-        board[BLACK][R_E + C_4] = 1;
-        board[BLACK][R_D + C_5] = 1;
-        board[WHITE][R_E + C_5] = 1;
+        planes[0] = planes[1] = 0;
+        planes[WHITE] |= position_plane(R_D + C_4);
+        planes[BLACK] |= position_plane(R_E + C_4);
+        planes[BLACK] |= position_plane(R_D + C_5);
+        planes[WHITE] |= position_plane(R_E + C_5);
         total_stones = 4;
         last_pass[0] = false;
         last_pass[1] = false;
@@ -115,7 +123,7 @@ public:
     void set_position_codingame(const vector<string> &lines, int turn)
     {
         // lines[0]: a1 to h1, '.' = nothing, '0' = black, '1' = white
-        memset(board, 0, N_PLAYER * BOARD_AREA * sizeof(int));
+        planes[0] = planes[1] = 0;
         total_stones = 0;
         for (int row = 0; row < BOARD_SIZE; row++)
         {
@@ -127,7 +135,7 @@ public:
                     continue;
                 }
                 int color = c - '0';
-                board[color][row * BOARD_SIZE + col] = 1;
+                planes[color] |= position_plane(row * BOARD_SIZE + col);
                 total_stones++;
             }
         }
@@ -148,11 +156,11 @@ public:
             for (int col = 0; col < BOARD_SIZE; col++)
             {
                 char c = '-';
-                if (board[BLACK][i])
+                if (planes[BLACK] & position_plane(i))
                 {
                     c = 'X';
                 }
-                else if (board[WHITE][i])
+                else if (planes[WHITE] & position_plane(i))
                 {
                     c = 'O';
                 }
@@ -182,7 +190,7 @@ public:
     {
         // 注意: パス情報については保存できない
         const char *pchars = position.c_str();
-        memset(board, 0, N_PLAYER * BOARD_AREA * sizeof(int));
+        planes[0] = planes[1] = 0;
         total_stones = 0;
         int i = 0;
         for (int row = 0; row < BOARD_SIZE; row++)
@@ -192,12 +200,12 @@ public:
                 char c = pchars[i];
                 if (c == 'X')
                 {
-                    board[BLACK][i] = 1;
+                    planes[BLACK] |= position_plane(i);
                     total_stones++;
                 }
                 else if (c == 'O')
                 {
-                    board[WHITE][i] = 1;
+                    planes[WHITE] |= position_plane(i);
                     total_stones++;
                 }
                 i++;
@@ -218,15 +226,18 @@ public:
 
     void do_move(int move, UndoInfo &undo_info)
     {
-        memcpy(undo_info.board, board, sizeof(board));
+        undo_info.planes[0] = planes[0];
+        undo_info.planes[1] = planes[1];
         undo_info.total_stones = total_stones;
         undo_info.turn = _turn;
         undo_info.last_pass[0] = last_pass[0];
         undo_info.last_pass[1] = last_pass[1];
         if (!move_is_pass(move))
         {
-            do_flip(move);
-            board[_turn][move] = 1;
+            BoardPlane player = planes[_turn], opponent = planes[1-_turn], position = position_plane(move);
+            BoardPlane reverse_plane = reverse(player, opponent, position);
+            planes[_turn] = player ^ position ^ reverse_plane;
+            planes[1-_turn] = opponent ^ reverse_plane;
             total_stones++;
             last_pass[_turn] = 0;
         }
@@ -239,7 +250,8 @@ public:
 
     void undo_move(const UndoInfo &undo_info)
     {
-        memcpy(board, undo_info.board, sizeof(board));
+        planes[0] = undo_info.planes[0];
+        planes[1] = undo_info.planes[1];
         total_stones = undo_info.total_stones;
         _turn = undo_info.turn;
         last_pass[0] = undo_info.last_pass[0];
@@ -249,10 +261,13 @@ public:
     // 合法手を列挙する。
     void legal_moves(vector<int> &move_list, bool with_pass = false) const
     {
+        // ビットボード参考 https://zenn.dev/kinakomochi/articles/othello-bitboard
         move_list.clear();
+        BoardPlane bb;
+        legal_moves_bb(bb);
         for (int pos = 0; pos < BOARD_AREA; pos++)
         {
-            if (can_move(pos))
+            if (bb & position_plane(pos))
             {
                 move_list.push_back(pos);
             }
@@ -264,54 +279,30 @@ public:
         }
     }
 
+    void legal_moves_bb(BoardPlane &result) const
+    {
+        result = 0;
+        BoardPlane buffer;
+        BoardPlane player = planes[_turn], opponent = planes[1-_turn];
+        legal_calc(result, buffer, player, opponent, 0x7e7e7e7e7e7e7e7e, 1);
+        legal_calc(result, buffer, player, opponent, 0x007e7e7e7e7e7e00, 7);
+        legal_calc(result, buffer, player, opponent, 0x00ffffffffffff00, 8);
+        legal_calc(result, buffer, player, opponent, 0x007e7e7e7e7e7e00, 9);
+
+        result &= ~(player | opponent);
+    }
+
     bool can_move(int move) const
     {
-        if (board[0][move] != 0 || board[1][move] != 0)
+        BoardPlane player = planes[_turn], opponent = planes[1-_turn], position = position_plane(move);
+        if ((player | opponent) & position)
         {
+            // すでにある場所には置けない
             return false;
         }
-
-        int opp = 1 - _turn;
-        for (int i = 0; i < N_DIR; i++)
-        {
-            int dirx = dirsx[i];
-            int diry = dirsy[i];
-            int posx = move % BOARD_SIZE;
-            int posy = move / BOARD_SIZE;
-            int opp_len = 0;
-            int flip_len = 0;
-            // 相手の石が連続する数を計算。最後に自分の石があれば、相手の石の数だけひっくりかえせる
-            while (true)
-            {
-                posx += dirx;
-                posy += diry;
-                if (posx < 0 || posx >= BOARD_SIZE || posy < 0 || posy >= BOARD_SIZE)
-                {
-                    break;
-                }
-                int p = posx + posy * BOARD_SIZE;
-                if (board[opp][p])
-                {
-                    opp_len++;
-                }
-                else if (board[_turn][p])
-                {
-                    flip_len = opp_len;
-                    break;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            if (flip_len > 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        BoardPlane reverse_plane = reverse(player, opponent, position);
+        // ひっくりかえせない場所には置けない
+        return reverse_plane ? true : false;
     }
 
     bool is_end() const
@@ -329,12 +320,7 @@ public:
 
     int count_stone(int color) const
     {
-        int v = 0;
-        for (int i = 0; i < BOARD_AREA; i++)
-        {
-            v += board[color][i];
-        }
-        return v;
+        return __builtin_popcountll(planes[color]);
     }
 
     // 石の数の差。黒-白。
@@ -357,11 +343,11 @@ public:
             for (int col = 0; col < BOARD_SIZE; col++)
             {
                 int p = row * BOARD_SIZE + col;
-                if (board[BLACK][p])
+                if (planes[BLACK] & position_plane(p))
                 {
                     s.append("x");
                 }
-                else if (board[WHITE][p])
+                else if (planes[WHITE] & position_plane(p))
                 {
                     s.append("o");
                 }
@@ -376,53 +362,50 @@ public:
     }
 
 private:
-    void do_flip(int move)
+    template<typename ShiftFunc>
+    void line(BoardPlane &result, BoardPlane position, BoardPlane mask, ShiftFunc shift, int n) const
     {
-        int opp = 1 - _turn;
-        for (int i = 0; i < N_DIR; i++)
-        {
-            int dirx = dirsx[i];
-            int diry = dirsy[i];
-            int posx = move % BOARD_SIZE;
-            int posy = move / BOARD_SIZE;
-            int opp_len = 0;
-            int flip_len = 0;
-            // 相手の石が連続する数を計算。最後に自分の石があれば、相手の石の数だけひっくりかえせる
-            while (true)
-            {
-                posx += dirx;
-                posy += diry;
-                if (posx < 0 || posx >= BOARD_SIZE || posy < 0 || posy >= BOARD_SIZE)
-                {
-                    break;
-                }
-                int p = posx + posy * BOARD_SIZE;
-                if (board[opp][p])
-                {
-                    opp_len++;
-                }
-                else if (board[_turn][p])
-                {
-                    flip_len = opp_len;
-                    break;
-                }
-                else
-                {
-                    break;
-                }
-            }
+        result = mask & shift(position, n);
+        result |= mask & shift(result, n);
+        result |= mask & shift(result, n);
+        result |= mask & shift(result, n);
+        result |= mask & shift(result, n);
+        result |= mask & shift(result, n);
+    }
 
-            posx = move % BOARD_SIZE;
-            posy = move / BOARD_SIZE;
-            for (int j = 0; j < flip_len; j++)
-            {
-                posx += dirx;
-                posy += diry;
-                int p = posx + posy * BOARD_SIZE;
-                board[opp][p] = 0;
-                board[_turn][p] = 1;
-            }
+    void legal_calc(BoardPlane &result, BoardPlane &buffer, BoardPlane player, BoardPlane opponent, BoardPlane mask, int n) const
+    {
+        BoardPlane _mask = opponent & mask;
+        line(buffer, player, _mask, [](BoardPlane p, int c){return p << c;}, n);
+        result |= buffer << n;
+        line(buffer, player, _mask, [](BoardPlane p, int c){return p >> c;}, n);
+        result |= buffer >> n;
+    }
+
+    void reverse_calc(BoardPlane &result, BoardPlane &buffer, BoardPlane s, BoardPlane opponent, BoardPlane position, BoardPlane mask, int n) const
+    {
+        BoardPlane _mask = opponent & mask;
+        line(buffer, position, _mask, [](BoardPlane p, int c){return p << c;}, n);
+        if (s & (buffer << n))
+        {
+            result |= buffer;
         }
+        line(buffer, position, _mask, [](BoardPlane p, int c){return p >> c;}, n);
+        if (s & (buffer >> n))
+        {
+            result |= buffer;
+        }
+    }
+
+    BoardPlane reverse(BoardPlane player, BoardPlane opponent, BoardPlane position) const
+    {
+        BoardPlane result = 0;
+        BoardPlane buffer;
+        reverse_calc(result, buffer, player, opponent, position, 0x7e7e7e7e7e7e7e7e, 1);
+        reverse_calc(result, buffer, player, opponent, position, 0x007e7e7e7e7e7e00, 7);
+        reverse_calc(result, buffer, player, opponent, position, 0x00ffffffffffff00, 8);
+        reverse_calc(result, buffer, player, opponent, position, 0x007e7e7e7e7e7e00, 9);
+        return result;
     }
 };
 
