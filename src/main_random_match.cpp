@@ -17,11 +17,11 @@ int main()
 
         while (!board.is_gameover())
         {
-            int turn_player = board.turn() ^ black_player;
+            Color turn_player = board.turn() ^ black_player;
             SearchBase *ai = ais[turn_player];
             ai->board.set(board);
             string msg;
-            int move = ai->search(msg);
+            Move move = ai->search(msg);
 
             UndoInfo undo_info;
             board.do_move(move, undo_info);

@@ -24,11 +24,11 @@ public:
         return "AlphaBetaIterative";
     }
 
-    int search(string &msg)
+    Move search(string &msg)
     {
         node_count = 0;
         stop = false;
-        vector<int> move_list;
+        vector<Move> move_list;
         board.legal_moves(move_list);
         if (move_list.empty())
         {
@@ -38,10 +38,11 @@ public:
         {
             auto search_start_time = chrono::system_clock::now();
             time_to_stop_search = search_start_time + chrono::milliseconds(time_limit_ms);
-            int bestmove = 0, score = 0, valid_depth = 0;
+            Move bestmove = 0;
+            int score = 0, valid_depth = 0;
             for (int depth = 1; depth < 20; depth++)
             {
-                int cur_bestmove;
+                Move cur_bestmove;
                 int cur_score = alphabeta(depth, -100000, 100000, &cur_bestmove) / 256;
                 if (stop)
                 {
@@ -87,7 +88,7 @@ private:
         return false;
     }
 
-    int alphabeta(int depth, int alpha, int beta, int *bestmove)
+    int alphabeta(int depth, int alpha, int beta, Move *bestmove)
     {
         if (board.is_gameover() || depth == 0)
         {
@@ -126,7 +127,7 @@ private:
         }
         else
         {
-            for (int move = 0; move < BOARD_AREA; move++)
+            for (Move move = 0; move < BOARD_AREA; move++)
             {
                 if (!(move_bb & position_plane(move)))
                 {

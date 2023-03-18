@@ -4,7 +4,7 @@
 
 int main()
 {
-    int my_color; // player's color. BLACK / WHITE.
+    Color my_color; // player's color. BLACK / WHITE.
     cin >> my_color;
     cin.ignore();
     int board_size;
@@ -43,7 +43,7 @@ int main()
         }
 
         string msg;
-        int bestmove = ai->search(msg);
+        Move bestmove = ai->search(msg);
         cout << move_to_str(bestmove) << " MSG " << msg << endl; // a-h1-8
     }
 }

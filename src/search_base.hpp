@@ -7,7 +7,7 @@ class SearchBase
 {
 public:
     Board board;
-    virtual int search(string &msg) = 0;
+    virtual Move search(string &msg) = 0;
     virtual string name() = 0;
 };
 #endif

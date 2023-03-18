@@ -15,9 +15,9 @@ public:
         return "Greedy";
     }
 
-    int search(string &msg)
+    Move search(string &msg)
     {
-        vector<int> move_list;
+        vector<Move> move_list;
         board.legal_moves(move_list);
         if (move_list.empty())
         {
@@ -25,7 +25,7 @@ public:
         }
         else
         {
-            int bestmove = 0;
+            Move bestmove = 0;
             int bestcount = -1;
             int player = board.turn();
             for (auto move : move_list)

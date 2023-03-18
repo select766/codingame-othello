@@ -33,15 +33,15 @@ int main()
         Board board;
         board.set_position_string_with_turn(elems[0]);
         auto legal_moves_str = string_split(elems[1], ',');
-        vector<int> expected_legal_moves;
+        vector<Move> expected_legal_moves;
         for (auto legal_move_str : legal_moves_str)
         {
             expected_legal_moves.push_back(move_from_str(legal_move_str));
         }
-        vector<int> sorted_expected_legal_moves = expected_legal_moves;
+        vector<Move> sorted_expected_legal_moves = expected_legal_moves;
         sort(sorted_expected_legal_moves.begin(), sorted_expected_legal_moves.end());
 
-        vector<int> actual_legal_moves;
+        vector<Move> actual_legal_moves;
         board.legal_moves(actual_legal_moves, true);
         sort(actual_legal_moves.begin(), actual_legal_moves.end());
 

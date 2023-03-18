@@ -10,7 +10,7 @@ int main()
         cout << board.pretty_print();
         cout << "Your turn: "
              << "xo"[board.turn()] << endl;
-        vector<int> legal_moves;
+        vector<Move> legal_moves;
         board.legal_moves(legal_moves);
         if (legal_moves.empty())
         {
@@ -26,7 +26,7 @@ int main()
         }
         cout << endl;
 
-        int move = legal_moves[0];
+        Move move = legal_moves[0];
         while (true)
         {
             string move_str;

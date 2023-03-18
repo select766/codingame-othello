@@ -37,13 +37,16 @@
 using namespace std;
 
 using BoardPlane = uint64_t;
+using Color = int32_t; // BLACK / WHITE
+using Position = int32_t;
+using Move = int32_t;
 
-inline BoardPlane position_plane(int pos)
+inline BoardPlane position_plane(Position pos)
 {
     return 1ULL << pos;
 }
 
-inline bool move_is_pass(int move)
+inline bool move_is_pass(Move move)
 {
     return move == MOVE_PASS;
 }
@@ -52,12 +55,12 @@ class UndoInfo
 {
 public:
     BoardPlane planes[N_PLAYER];
-    int turn; // BLACK / WHITE
+    Color turn; // BLACK / WHITE
     int pass_count;
 };
 
 
-inline string move_to_str(int move)
+inline string move_to_str(Move move)
 {
     if (move_is_pass(move))
     {
@@ -70,7 +73,7 @@ inline string move_to_str(int move)
     return string(m);
 }
 
-inline int move_from_str(const string &move_str)
+inline Move move_from_str(const string &move_str)
 {
     if (move_str[0] == 'p')
     {
@@ -82,7 +85,7 @@ inline int move_from_str(const string &move_str)
 class Board
 {
     BoardPlane planes[N_PLAYER];
-    int _turn; // BLACK / WHITE
+    Color _turn;
     int _pass_count; // 連続パス回数
 
 public:
@@ -98,7 +101,7 @@ public:
         _pass_count = other._pass_count;
     }
 
-    int turn() const
+    Color turn() const
     {
         return _turn;
     }
@@ -114,7 +117,7 @@ public:
         _pass_count = 0;
     }
 
-    void set_position_codingame(const vector<string> &lines, int turn)
+    void set_position_codingame(const vector<string> &lines, Color turn)
     {
         // lines[0]: a1 to h1, '.' = nothing, '0' = black, '1' = white
         planes[0] = planes[1] = 0;
@@ -177,7 +180,7 @@ public:
     }
 
     // get_position_string()の結果を読み取る
-    void set_position_string(const string &position, int turn)
+    void set_position_string(const string &position, Color turn)
     {
         // 注意: パス情報については保存できない
         const char *pchars = position.c_str();
@@ -211,7 +214,7 @@ public:
         set_position_string(position_with_turn, turn_char == 'b' ? BLACK : WHITE); // 余分な文字がついていても先頭64文字しか見ない
     }
 
-    void do_move(int move, UndoInfo &undo_info)
+    void do_move(Move move, UndoInfo &undo_info)
     {
         undo_info.planes[0] = planes[0];
         undo_info.planes[1] = planes[1];
@@ -241,7 +244,7 @@ public:
     }
 
     // 合法手を列挙する。
-    void legal_moves(vector<int> &move_list, bool with_pass = false) const
+    void legal_moves(vector<Move> &move_list, bool with_pass = false) const
     {
         // ビットボード参考 https://zenn.dev/kinakomochi/articles/othello-bitboard
         move_list.clear();
@@ -274,7 +277,8 @@ public:
         result &= ~(player | opponent);
     }
 
-    bool can_move(int move) const
+    // 手が合法かチェックする。ただし、MOVE_PASSは扱えない。
+    bool is_legal(Move move) const
     {
         BoardPlane player = planes[_turn], opponent = planes[1 - _turn], position = position_plane(move);
         if ((player | opponent) & position)

@@ -18,9 +18,9 @@ public:
         return "Random";
     }
 
-    int search(string &msg)
+    Move search(string &msg)
     {
-        vector<int> move_list;
+        vector<Move> move_list;
         board.legal_moves(move_list);
         if (move_list.empty())
         {

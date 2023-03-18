@@ -20,10 +20,10 @@ public:
         return "AlphaBetaConstantDepth";
     }
 
-    int search(string &msg)
+    Move search(string &msg)
     {
         node_count = 0;
-        vector<int> move_list;
+        vector<Move> move_list;
         board.legal_moves(move_list);
         if (move_list.empty())
         {
@@ -44,7 +44,7 @@ public:
         }
     }
 
-    int alphabeta(int depth, int alpha, int beta, int *bestmove)
+    int alphabeta(int depth, int alpha, int beta, Move *bestmove)
     {
         if (board.is_gameover() || depth == 0)
         {
@@ -54,7 +54,7 @@ public:
             return score;
         }
 
-        vector<int> move_list;
+        vector<Move> move_list;
         board.legal_moves(move_list);
         if (move_list.empty())
         {
