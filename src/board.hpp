@@ -106,6 +106,11 @@ public:
         return _turn;
     }
 
+    BoardPlane plane(Color c) const
+    {
+        return planes[c];
+    }
+
     void set_hirate()
     {
         planes[0] = planes[1] = 0;

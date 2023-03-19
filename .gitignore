@@ -34,3 +34,6 @@
 /src/*.o
 /dataset
 /build
+*.ipynb
+.ipynb_checkpoints
+*.pyc

@@ -8,7 +8,7 @@ OBJS = $(SRCS:.cpp=.o)
 
 .PHONY: all clean
 
-all: $(OUTDIR)/codingame $(OUTDIR)/interactive $(OUTDIR)/legal_move_test $(OUTDIR)/make_legal_move_test_data $(OUTDIR)/random_match
+all: $(OUTDIR)/codingame $(OUTDIR)/interactive $(OUTDIR)/generate_training_data_1 $(OUTDIR)/legal_move_test $(OUTDIR)/make_legal_move_test_data $(OUTDIR)/random_match
 clean:
 	rm -rf $(OUTDIR)/* $(SRCDIR)/*.o
 
@@ -24,6 +24,10 @@ $(OUTDIR)/codingame: $(OUTDIR)/codingame.o
 	g++ -o $@ $^ $(CFLAGS)
 
 $(OUTDIR)/interactive: $(SRCDIR)/main_interactive.o
+	mkdir -p $(@D)
+	g++ -o $@ $^ $(CFLAGS)
+
+$(OUTDIR)/generate_training_data_1: $(SRCDIR)/main_generate_training_data_1.o
 	mkdir -p $(@D)
 	g++ -o $@ $^ $(CFLAGS)
 

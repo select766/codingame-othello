@@ -4,6 +4,7 @@
         "string": "cpp",
         "vector": "cpp",
         "chrono": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "ostream": "cpp"
     }
 }
