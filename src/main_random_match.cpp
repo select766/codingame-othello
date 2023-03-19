@@ -2,8 +2,8 @@
 
 int main()
 {
-    const int n_games = 100;
-    SearchBase *ais[] = {new SearchRandom(), new SearchAlphaBetaIterative(100)};
+    const int n_games = 1000;
+    SearchBase *ais[] = {new SearchRandom(), new SearchAlphaBetaConstantDepth(5, 2.0)};
     int player_win_count[N_PLAYER] = {0};
     int color_win_count[N_PLAYER] = {0};
     int draw_count = 0;

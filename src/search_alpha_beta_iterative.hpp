@@ -7,7 +7,8 @@ class SearchAlphaBetaIterative : public SearchBase
 {
     std::random_device seed_gen;
     mt19937 engine;
-    uniform_int_distribution<> dist;
+    normal_distribution<float> dist;
+    const int score_scale = 256;
     int node_count;    // 評価関数を呼び出した回数
     int time_limit_ms; // 探索時間の制限[ms]。これを超えたことを検知したら探索を終了する。ルール上の制限時間より短く設定する必要がある。
     bool stop;         // 探索の内部で、時間切れなどで中断すべき場合にtrueにセットする。
@@ -15,7 +16,7 @@ class SearchAlphaBetaIterative : public SearchBase
     chrono::system_clock::time_point time_to_stop_search; // 探索を終了すべき時刻
 
 public:
-    SearchAlphaBetaIterative(int time_limit_ms = 1000) : seed_gen(), engine(seed_gen()), dist(0, 255), time_limit_ms(time_limit_ms), check_time_skip(0)
+    SearchAlphaBetaIterative(int time_limit_ms = 1000, float noise_scale = 0.1) : seed_gen(), engine(seed_gen()), dist(0.0, noise_scale * score_scale), time_limit_ms(time_limit_ms), check_time_skip(0)
     {
     }
 
@@ -43,7 +44,7 @@ public:
             for (int depth = 1; depth < 20; depth++)
             {
                 Move cur_bestmove;
-                int cur_score = alphabeta(depth, -100000, 100000, &cur_bestmove) / 256;
+                int cur_score = alphabeta(depth, -100000, 100000, &cur_bestmove) / score_scale;
                 if (stop)
                 {
                     // stopで終了した探索は途中で打ち切られているので使用しない
@@ -93,7 +94,7 @@ private:
         if (board.is_gameover() || depth == 0)
         {
             // 乱数要素がないと強さ測定が難しいので入れている
-            int score = board.count_stone_diff() * 256 + dist(engine);
+            int score = static_cast<int>((static_cast<float>(board.count_stone_diff()) + dist(engine)) * score_scale);
             node_count++;
             return score;
         }

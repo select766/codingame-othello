@@ -7,12 +7,13 @@ class SearchAlphaBetaConstantDepth : public SearchBase
 {
     std::random_device seed_gen;
     mt19937 engine;
-    uniform_int_distribution<> dist;
+    normal_distribution<float> dist;
     int node_count; // 評価関数を呼び出した回数
     int depth;
+    const int score_scale = 256;
 
 public:
-    SearchAlphaBetaConstantDepth(int depth = 5) : seed_gen(), engine(seed_gen()), dist(0, 255), depth(depth)
+    SearchAlphaBetaConstantDepth(int depth = 5, float noise_scale = 0.1) : seed_gen(), engine(seed_gen()), dist(0.0, noise_scale), depth(depth)
     {
     }
 
@@ -34,7 +35,7 @@ public:
         {
             auto search_start_time = chrono::system_clock::now();
             int bestmove;
-            int score = alphabeta(depth, -100000, 100000, &bestmove) / 256;
+            int score = alphabeta(depth, -100000, 100000, &bestmove) / score_scale;
             auto search_end_time = chrono::system_clock::now();
             auto search_duration = search_end_time - search_start_time;
             stringstream ss;
@@ -50,7 +51,7 @@ public:
         if (board.is_gameover() || depth == 0)
         {
             // 乱数要素がないと強さ測定が難しいので入れている
-            int score = board.count_stone_diff() * 256 + dist(engine);
+            int score = static_cast<int>((static_cast<float>(board.count_stone_diff()) + dist(engine)) * score_scale);
             node_count++;
             return score;
         }
