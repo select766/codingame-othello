@@ -40,3 +40,10 @@ mkdir -p dataset/alphabeta_train_1
 ./build/generate_training_data_1 dataset/alphabeta_train_1/raw_game_train.bin 10000
 python -m othello_train.shuffle_train_data dataset/alphabeta_train_1/raw_game_train.bin dataset/alphabeta_train_1/train_shuffled.bin
 ```
+
+## 学習
+
+```
+mkdir -p model
+python -m othello_train.train_v1
+```

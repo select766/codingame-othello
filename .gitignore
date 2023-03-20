@@ -37,3 +37,4 @@
 *.ipynb
 .ipynb_checkpoints
 *.pyc
+/model
