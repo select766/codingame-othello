@@ -3,7 +3,8 @@
 int main()
 {
     const int n_games = 1000;
-    SearchBase *ais[] = {new SearchRandom(), new SearchAlphaBetaConstantDepth(5, 2.0)};
+    shared_ptr<DNNEvaluator> evaluator(new DNNEvaluatorSocket("127.0.0.1", 8099));
+    SearchBase *ais[] = {new SearchRandom(), new SearchPolicy(evaluator)};
     int player_win_count[N_PLAYER] = {0};
     int color_win_count[N_PLAYER] = {0};
     int draw_count = 0;

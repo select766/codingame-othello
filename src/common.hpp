@@ -8,9 +8,11 @@
 #include <chrono>
 #include <memory>
 #include "board.hpp"
+#include "dnn_evaluator_socket.hpp"
 #include "search_alpha_beta_constant_depth.hpp"
 #include "search_alpha_beta_iterative.hpp"
 #include "search_base.hpp"
 #include "search_greedy.hpp"
 #include "search_mcts.hpp"
+#include "search_policy.hpp"
 #include "search_random.hpp"

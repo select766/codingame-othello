@@ -47,3 +47,17 @@ python -m othello_train.shuffle_train_data dataset/alphabeta_train_1/raw_game_tr
 mkdir -p model
 python -m othello_train.train_v1
 ```
+
+# 自己対局
+
+```
+./build/random_match
+```
+
+対戦相手は `main_random_match.cpp` 内にハードコードされている
+
+DNNモデルを使うエンジンの場合は、評価サーバを立てておく必要がある
+
+```
+python -m othello_train.eval_server_v1 model/alphabeta_supervised_model_v1
+```
