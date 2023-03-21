@@ -8,24 +8,36 @@ import sys
 
 from othello_train import board
 
-def make_feat(record):
+# def make_feat_nchw(record):
+#     # 手番から見た盤面を作る
+#     # 盤の内側かどうかを判定するための、1で埋めたチャンネルを用意
+#     ba = board.get_board_array(record["board"])
+#     if record["turn"] == board.WHITE:
+#         ba = ba[::-1]
+#     feat = np.zeros((3, 8, 8), dtype=np.float32)
+#     feat[:2] = ba
+#     feat[2] = 1
+#     return feat
+
+def make_feat_nhwc(record):
     # 手番から見た盤面を作る
     # 盤の内側かどうかを判定するための、1で埋めたチャンネルを用意
     ba = board.get_board_array(record["board"])
     if record["turn"] == board.WHITE:
         ba = ba[::-1]
-    feat = np.zeros((3, 8, 8), dtype=np.float32)
-    feat[:2] = ba
-    feat[2] = 1
+    feat = np.zeros((8, 8, 3), dtype=np.float32)
+    feat[:, :, 0] = ba[0]
+    feat[:, :, 1] = ba[1]
+    feat[:, :, 2] = 1
     return feat
 
 def load_dataset(path):
     records = np.fromfile(path, dtype=board.move_record_dtype)
-    all_feats = np.zeros((len(records), 3, 8, 8), dtype=np.float32)
+    all_feats = np.zeros((len(records), 8, 8, 3), dtype=np.float32) # NHWC
     all_moves = np.zeros((len(records),), dtype=np.int32)
     all_game_results = np.zeros((len(records),), dtype=np.float32)
     for i, record in enumerate(records):
-        all_feats[i] = make_feat(record)
+        all_feats[i] = make_feat_nhwc(record)
         all_moves[i] = record["move"]
         all_game_results[i] = np.clip(record["game_result"], -1, 1) # もとは手番からみた石の数の差。勝ち=1,負け=-1,引き分け=0に変換
     return all_feats, all_moves, all_game_results
@@ -33,12 +45,15 @@ def load_dataset(path):
 class MyModel(Model):
   def __init__(self):
     super(MyModel, self).__init__()
-    self.conv1 = Conv2D(32, 3, activation='relu', padding="same", data_format="channels_first")
-    self.conv2 = Conv2D(32, 3, activation='relu', padding="same", data_format="channels_first")
-    self.conv3 = Conv2D(32, 3, activation='relu', padding="same", data_format="channels_first")
-    self.conv4 = Conv2D(32, 3, activation='relu', padding="same", data_format="channels_first")
-    self.conv5 = Conv2D(32, 3, activation='relu', padding="same", data_format="channels_first")
-    self.conv6 = Conv2D(1, 3, activation=None, padding="same", data_format="channels_first")
+    # Conv2Dのデフォルトはdata_format="channels_last" (NHWC)
+    # data_format="channels_first" (NCHW)はCPUでの推論が対応してない
+    # The Conv2D op currently only supports the NHWC tensor format on the CPU. The op was given the format: NCHW
+    self.conv1 = Conv2D(32, 3, activation='relu', padding="same")
+    self.conv2 = Conv2D(32, 3, activation='relu', padding="same")
+    self.conv3 = Conv2D(32, 3, activation='relu', padding="same")
+    self.conv4 = Conv2D(32, 3, activation='relu', padding="same")
+    self.conv5 = Conv2D(32, 3, activation='relu', padding="same")
+    self.conv6 = Conv2D(1, 3, activation=None, padding="same")
     self.value_flatten = Flatten()
     self.value_fc_1 = Dense(16, activation='relu')
     self.value_fc_2 = Dense(1, activation=None)

@@ -26,6 +26,8 @@ protected:
     {
         DNNEvaluatorRequest req;
         memset(&req, 0, sizeof(req));
+        // board_repr: [pos(y,x),3] (NHWC)
+        const int n_ch = 3;
         for (int i = 0; i < N_PLAYER; i++)
         {
             int turn = i == 0 ? board.turn() : 1 - board.turn();
@@ -34,14 +36,14 @@ protected:
             {
                 if (bb & (1 << pos))
                 {
-                    req.board_repr[i * BOARD_AREA + pos] = 1.0F;
+                    req.board_repr[pos * n_ch + i] = 1.0F;
                 }
             }
         }
         // fill 1
         for (int pos = 0; pos < BOARD_AREA; pos++)
         {
-            req.board_repr[2 * BOARD_AREA + pos] = 1.0F;
+            req.board_repr[pos * n_ch + 2] = 1.0F;
         }
 
         return req;

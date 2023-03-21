@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 # without batch dimension
-INPUT_SHAPE = (3, 8, 8)
+INPUT_SHAPE = (8, 8, 3)
 INPUT_BYTE_LENGTH = int(np.prod(INPUT_SHAPE) * 4)
 POLICY_SHAPE = (64,)
 POLICY_BYTE_LENGTH = int(np.prod(POLICY_SHAPE) * 4)
@@ -49,9 +49,8 @@ def request_loop(model, sock):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("savedmodel_dir")
-    # バッチサイズ1のため、CPU (/CPU:0)のほうが速いと予想されるが、使用しているモデルがCPUに対応していない
-    # The Conv2D op currently only supports the NHWC tensor format on the CPU. The op was given the format: NCHW
-    parser.add_argument("--device", default="/GPU:0")
+    # バッチサイズ1のため、CPU (/CPU:0)のほうがGPU (/GPU:0)より速いと予想される
+    parser.add_argument("--device", default="/CPU:0")
     parser.add_argument("--port", type=int, default=8099)
     parser.add_argument("--host", default="")
     args = parser.parse_args()
