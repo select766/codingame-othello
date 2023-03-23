@@ -17,6 +17,7 @@ int main()
     }
 
     SearchBase *ai = new SearchAlphaBetaIterative(120);
+    ai->newgame();
     // game loop
     while (1)
     {

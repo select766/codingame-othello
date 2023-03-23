@@ -17,6 +17,7 @@ void run_one_game(SearchBase *ai, ofstream &fout)
     vector<MoveRecord> records;
     Board board;
     board.set_hirate();
+    ai->newgame();
 
     while (!board.is_gameover())
     {

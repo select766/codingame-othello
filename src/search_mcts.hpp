@@ -47,6 +47,11 @@ public:
         delete[] nodes;
     }
 
+    void clear()
+    {
+        next_idx = 1;
+    }
+
     // 新しい要素を確保する。内容は初期化されないため、必要に応じてTreeNode.clear()を用いる。
     TreeNode *alloc()
     {
@@ -58,7 +63,7 @@ public:
         return &nodes[next_idx++];
     }
 
-    TreeNode *at(int index)
+    TreeNode *at(int index) const
     {
         if (index <= 0 || index >= int(next_idx))
         {
@@ -68,15 +73,17 @@ public:
         return &nodes[index];
     }
 
-    int get_index(TreeNode *node)
+    int get_index(const TreeNode *node) const
     {
         // この関数は使いたくない
-        return (node - nodes) / sizeof(TreeNode);
+        return node - nodes;
     }
 };
 
 class SearchPartialResult
 {
+public:
+    virtual ~SearchPartialResult() = default;
 };
 
 class SearchPartialResultMove : public SearchPartialResult
@@ -102,6 +109,14 @@ public:
     float policy_logits[BOARD_AREA];
 };
 
+class SearchMCTSConfig
+{
+public:
+    int playout_limit;
+    size_t table_size;
+    float c_puct;
+};
+
 // MCTS
 class SearchMCTS : public SearchBase
 {
@@ -120,16 +135,27 @@ class SearchMCTS : public SearchBase
     int playout_count;
 
     TreeNode *root_node;
+    shared_ptr<DNNEvaluator> dnn_evaluator;
 
 public:
-    SearchMCTS(int playout_limit, size_t table_size, float c_puct)
-        : playout_limit(playout_limit), tree_table(new TreeTable(table_size)), c_puct(c_puct), next_task(START_SEARCH), root_node(nullptr)
+    SearchMCTS(const SearchMCTSConfig &config, shared_ptr<DNNEvaluator> dnn_evaluator)
+        : dnn_evaluator(dnn_evaluator),
+          playout_limit(config.playout_limit),
+          tree_table(new TreeTable(config.table_size)),
+          c_puct(config.c_puct),
+          next_task(START_SEARCH),
+          root_node(nullptr)
     {
     }
 
     string name()
     {
         return "MCTS";
+    }
+
+    void newgame()
+    {
+        tree_table->clear();
     }
 
     // 対局用
@@ -141,11 +167,37 @@ public:
         {
             return MOVE_PASS;
         }
+        else if (move_list.size() == 1)
+        {
+            return move_list[0];
+        }
         else
         {
-            // TODO
+            EvalResult *eval_result = nullptr;
+            while (true)
+            {
+                auto search_partial_result = search_partial(eval_result);
+                delete eval_result;
+                eval_result = nullptr;
+                auto result_move = dynamic_pointer_cast<SearchPartialResultMove>(search_partial_result);
+                if (result_move)
+                {
+                    stringstream ss;
+                    ss << "value score " << result_move->score;
+                    msg = ss.str();
+                    return result_move->move;
+                }
+                auto result_eval = dynamic_pointer_cast<SearchPartialResultEvalRequest>(search_partial_result);
+                if (result_eval)
+                {
+                    auto dnn_result = dnn_evaluator->evaluate(result_eval->board);
+                    eval_result = new EvalResult();
+                    memcpy(eval_result->policy_logits, dnn_result.policy_logits, sizeof(dnn_result.policy_logits));
+                    eval_result->value_logit = dnn_result.value_logit;
+                    eval_result->request = result_eval;
+                }
+            }
         }
-        return MOVE_PASS; // TODO
     }
 
     // 局面の評価が必要か、指し手が決定するまで探索する
@@ -214,6 +266,7 @@ private:
         assign_eval_result_to_leaf(leaf, eval_result);
         // TODO: 学習データ作成時、ルートノードではディリクレノイズを加算。
         next_task = NextTask::SEARCH_TREE;
+        return nullptr;
     }
 
     shared_ptr<SearchPartialResult> assign_leaf_eval(const EvalResult *eval_result)
@@ -225,6 +278,7 @@ private:
         assign_eval_result_to_leaf(leaf, eval_result);
         backup_path(prev_request->tree_path, leaf->score);
         next_task = NextTask::SEARCH_TREE;
+        return nullptr;
     }
 
     float assign_eval_result_to_leaf(TreeNode *leaf, const EvalResult *eval_result)
@@ -374,7 +428,7 @@ private:
         return result;
     }
 
-    void backup_path(vector<pair<TreeNode *, int>> &path, float leaf_score)
+    void backup_path(const vector<pair<TreeNode *, int>> &path, float leaf_score)
     {
         float score = leaf_score;
         for (int i = int(path.size()) - 1; i >= 0; i--)
@@ -384,17 +438,17 @@ private:
         }
     }
 
-    int select_edge(TreeNode *node)
+    int select_edge(const TreeNode *node)
     {
         int n_sum = 0;
-        for (int i = 0; node->n_legal_moves; i++)
+        for (int i = 0; i < node->n_legal_moves; i++)
         {
             n_sum += node->value_n[i];
         }
         float n_sum_sqrt = sqrt(static_cast<float>(n_sum)) + 0.001;
         float best_score = -1000.0F;
         int best_edge = 0;
-        for (int i = 0; node->n_legal_moves; i++)
+        for (int i = 0; i < node->n_legal_moves; i++)
         {
             float u = node->value_p[i] / static_cast<float>(node->value_n[i] + 1) * n_sum_sqrt * c_puct;
             // 未訪問ノードのスコアは現局面と同じと仮定

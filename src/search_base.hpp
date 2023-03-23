@@ -11,5 +11,7 @@ public:
     Board board;
     virtual Move search(string &msg) = 0;
     virtual string name() = 0;
+    // 新しいゲームが開始する際に呼ぶ。内部データのクリアを行う。
+    virtual void newgame() {}
 };
 #endif

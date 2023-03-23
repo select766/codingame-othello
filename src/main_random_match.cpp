@@ -2,9 +2,13 @@
 
 int main()
 {
-    const int n_games = 1000;
+    const int n_games = 100;
     shared_ptr<DNNEvaluator> evaluator(new DNNEvaluatorSocket("127.0.0.1", 8099));
-    SearchBase *ais[] = {new SearchRandom(), new SearchPolicy(evaluator)};
+    SearchMCTSConfig mcts_config;
+    mcts_config.playout_limit = 16;
+    mcts_config.table_size = mcts_config.playout_limit * 60 * 2;
+    mcts_config.c_puct = 1.0;
+    SearchBase *ais[] = {new SearchRandom(), new SearchMCTS(mcts_config, evaluator)};
     int player_win_count[N_PLAYER] = {0};
     int color_win_count[N_PLAYER] = {0};
     int draw_count = 0;
@@ -13,6 +17,11 @@ int main()
         cout << "game " << i << endl;
         Board board;
         board.set_hirate();
+
+        for (int player = 0; player < N_PLAYER; player++)
+        {
+            ais[player]->newgame();
+        }
 
         int black_player = i % 2;
 
