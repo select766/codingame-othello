@@ -23,9 +23,9 @@ import re
 def read_file_lines(root_dir: Path, basename: str) -> List[str]:
     return (root_dir / basename).read_text(encoding="utf-8").splitlines()
 
-def include_header_recursive(root_dir: Path, basename: str, loaded_files: List[str]) -> List[str]:
+def include_header_recursive(root_dir: Path, basename: str, loaded_files: List[str], exclude: List[str]) -> List[str]:
     all_lines = []
-    if basename in loaded_files:
+    if basename in loaded_files or basename in exclude:
         # ファイル容量削減のため、同じファイルが複数回インクルードされても初回しか出力しない
         return all_lines
     loaded_files.append(basename)
@@ -35,13 +35,13 @@ def include_header_recursive(root_dir: Path, basename: str, loaded_files: List[s
         if m is not None:
             # インクルード行
             target_name = m.group(1)
-            all_lines.extend(include_header_recursive(root_dir, target_name, loaded_files))
+            all_lines.extend(include_header_recursive(root_dir, target_name, loaded_files, exclude))
         else:
             # 通常の行
             all_lines.append(line)
     return all_lines
 
-def concat_source(root_dir: Path, cpp_files: List[str]) -> str:
+def concat_source(root_dir: Path, cpp_files: List[str], exclude: List[str]) -> str:
     is_first_file = True
     concat_lines = []
     for cpp_file in cpp_files:
@@ -50,7 +50,7 @@ def concat_source(root_dir: Path, cpp_files: List[str]) -> str:
         assert cpp_source[0] == '#include "common.hpp"'
         assert all(re.match('^#include\\s', line) is None for line in cpp_source[1:])
         if is_first_file:
-            concat_lines.extend(include_header_recursive(root_dir, 'common.hpp', []))
+            concat_lines.extend(include_header_recursive(root_dir, 'common.hpp', [], exclude))
         concat_lines.extend(cpp_source[1:])
         is_first_file = False
     return '\n'.join(concat_lines)
@@ -59,11 +59,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("root_dir")
     parser.add_argument("cpp_file", nargs="+")
+    parser.add_argument("-e", "--exclude", nargs="*", help="header files to exclude", default=[])
     parser.add_argument("-o", type=argparse.FileType("w", encoding="utf-8"),
                         default=sys.stdout)
     args = parser.parse_args()
     root_dir = Path(args.root_dir)
-    result = concat_source(root_dir, args.cpp_file)
+    result = concat_source(root_dir, args.cpp_file, args.exclude)
     args.o.write(result)
 
 if __name__ == "__main__":

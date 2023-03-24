@@ -18,7 +18,7 @@ clean:
 
 $(OUTDIR)/codingame.cpp: src/main_codingame.cpp $(HEADERS)
 	mkdir -p $(@D)
-	python concat_source.py -o $@ src main_codingame.cpp
+	python concat_source.py -o $@ src main_codingame.cpp --exclude dnn_evaluator_socket.hpp search_alpha_beta_constant_depth.hpp search_policy.hpp  search_random.hpp search_mcts_train.hpp
 
 $(OUTDIR)/codingame: $(OUTDIR)/codingame.o
 	mkdir -p $(@D)
