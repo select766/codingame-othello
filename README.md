@@ -29,7 +29,7 @@ make
 ./build/legal_move_test < dataset/legal_move_dataset.txt
 ```
 
-# 学習
+# 教師あり学習
 
 ## 教師データ生成
 
@@ -45,10 +45,10 @@ python -m othello_train.shuffle_train_data dataset/alphabeta_train_1/raw_game_tr
 
 ```
 mkdir -p model
-python -m othello_train.train_v1
+python -m othello_train.supervised_train_v1
 ```
 
-# 自己対局
+## 自己対局
 
 ```
 ./build/random_match
@@ -61,3 +61,30 @@ DNNモデルを使うエンジンの場合は、評価サーバを立ててお�
 ```
 python -m othello_train.eval_server_v1 model/alphabeta_supervised_model_v1
 ```
+
+# 強化学習
+
+最新のモデルで棋譜生成→それを用いてモデルを更新 というループを回す
+
+```
+python othello_train/rl_loop.py model/debug
+```
+
+
+## 自己対局
+
+評価サーバを立てる
+
+```
+python -m othello_train.eval_server_v1 model/debug/sm_9
+```
+
+`sm_`の後ろの番号はエポック数。大きいほうが学習が進んでいる。
+
+別のシェルで対局を実行
+
+```
+./build/random_match
+```
+
+対戦相手は `main_random_match.cpp` 内にハードコードされている

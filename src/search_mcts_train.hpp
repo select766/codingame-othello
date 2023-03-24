@@ -1,15 +1,32 @@
-#ifndef _SEARCH_MCTS_
-#define _SEARCH_MCTS_
+#ifndef _SEARCH_MCTS_TRAIN
+#define _SEARCH_MCTS_TRAIN
 #include <memory>
 #include <cassert>
-#include "dnn_evaluator.hpp"
 #include "mcts_base.hpp"
 
 // MCTS
-class SearchMCTS : public SearchBase
+class SearchMCTSTrain : public SearchBase
 {
+public:
 
-    class SearchPartialResult
+    class SearchMCTSConfig
+    {
+    public:
+        // プレイアウト回数
+        int playout_limit;
+        // 置換表の要素数
+        size_t table_size;
+        // プレイアウト時の子ノード選択のパラメータ
+        float c_puct;
+        // ルートノードに加算するディリクレノイズのパラメータ
+        float root_noise_dirichret_alpha;
+        // ルートノードに加算するノイズの重み(0=ノイズなし、最大1)
+        float root_noise_epsilon;
+        // 盤上の石の数がこの値以下の時、ノードの訪問回数に比例した確率で指し手を選択する
+        int select_move_proportional_until_move;
+    };
+
+        class SearchPartialResult
     {
     public:
         virtual ~SearchPartialResult() = default;
@@ -38,8 +55,8 @@ class SearchMCTS : public SearchBase
         float policy_logits[BOARD_AREA];
     };
 
-    int playout_limit;
-    float c_puct;
+private:
+    const SearchMCTSConfig config;
     shared_ptr<TreeTable> tree_table;
     enum NextTask
     {
@@ -53,79 +70,39 @@ class SearchMCTS : public SearchBase
     int playout_count;
 
     TreeNode *root_node;
-    shared_ptr<DNNEvaluator> dnn_evaluator;
+
+    random_device seed_gen;
+    default_random_engine random_engine;
+    gamma_distribution<float> gamma_distribution_for_dirichret;
 
 public:
-    class SearchMCTSConfig
-    {
-    public:
-        int playout_limit;
-        size_t table_size;
-        float c_puct;
-    };
 
-    SearchMCTS(const SearchMCTSConfig &config, shared_ptr<DNNEvaluator> dnn_evaluator)
-        : dnn_evaluator(dnn_evaluator),
-          playout_limit(config.playout_limit),
+    SearchMCTSTrain(const SearchMCTSConfig &config)
+        : config(config),
           tree_table(new TreeTable(config.table_size)),
-          c_puct(config.c_puct),
           next_task(START_SEARCH),
-          root_node(nullptr)
+          root_node(nullptr),
+          random_engine(seed_gen()),
+          gamma_distribution_for_dirichret(config.root_noise_dirichret_alpha, 1.0F)
     {
     }
 
     string name()
     {
-        return "MCTS";
+        return "MCTSTrain";
     }
 
     void newgame()
     {
         tree_table->clear();
+        root_node = nullptr;
+        next_task = START_SEARCH;
     }
 
-    // 対局用
     Move search(string &msg)
     {
-        vector<Move> move_list;
-        board.legal_moves(move_list);
-        if (move_list.empty())
-        {
-            return MOVE_PASS;
-        }
-        else if (move_list.size() == 1)
-        {
-            return move_list[0];
-        }
-        else
-        {
-            // TODO: 探索末端でdnn_evaluatorをコールする単純な構造に書き換え
-            // TODO: 時間で打ち切る機能を追加
-            EvalResult *eval_result = nullptr;
-            while (true)
-            {
-                auto search_partial_result = search_partial(eval_result);
-                delete eval_result;
-                eval_result = nullptr;
-                auto result_move = dynamic_pointer_cast<SearchPartialResultMove>(search_partial_result);
-                if (result_move)
-                {
-                    stringstream ss;
-                    ss << "value score " << result_move->score;
-                    msg = ss.str();
-                    return result_move->move;
-                }
-                auto result_eval = dynamic_pointer_cast<SearchPartialResultEvalRequest>(search_partial_result);
-                if (result_eval)
-                {
-                    auto dnn_result = dnn_evaluator->evaluate(result_eval->board);
-                    eval_result = new EvalResult();
-                    memcpy(eval_result->policy_logits, dnn_result.policy_logits, sizeof(dnn_result.policy_logits));
-                    eval_result->value_logit = dnn_result.value_logit;
-                    eval_result->request = result_eval;
-                }
-            }
-        }
+        // 非対応
+        return MOVE_PASS;
     }
 
     // 局面の評価が必要か、指し手が決定するまで探索する
@@ -166,7 +143,7 @@ private:
 
     shared_ptr<SearchPartialResult> make_root(const Board &b)
     {
-        // TODO: 探索木の再利用
+        // 学習時は探索木の再利用をしない。ルートにディレクレノイズを足した状態で探索する必要があるため、ノイズが足されていない子ノードをルートとして再利用すると結果が変化する。
         root_node = MCTSBase::make_node(b, tree_table.get());
         if (!root_node->terminal())
         {
@@ -185,6 +162,24 @@ private:
         }
     }
 
+    vector<float> make_dirichret(size_t size)
+    {
+        vector<float> d(size);
+        float sum = 0.0F;
+        for (size_t i = 0; i < size; i++)
+        {
+            float r = gamma_distribution_for_dirichret(random_engine);
+            sum += r;
+            d[i] = r;
+        }
+        for (size_t i = 0; i < size; i++)
+        {
+            d[i] /= sum;
+        }
+
+        return d;
+    }
+
     shared_ptr<SearchPartialResult> assign_root_eval(const EvalResult *eval_result)
     {
         assert(eval_result);
@@ -192,7 +187,18 @@ private:
         assert(prev_request);
         auto leaf = prev_request->leaf;
         assign_eval_result_to_leaf(leaf, eval_result);
-        // TODO: 学習データ作成時、ルートノードではディリクレノイズを加算。
+
+        // ルートノードにディリクレノイズを加算。
+        if (config.root_noise_epsilon > 0.0F)
+        {
+            auto dirichret = make_dirichret(prev_request->leaf->n_legal_moves);
+            auto value_p = prev_request->leaf->value_p;
+            for (int i = 0; i < prev_request->leaf->n_legal_moves; i++)
+            {
+                value_p[i] = (1.0F - config.root_noise_epsilon) * value_p[i] + config.root_noise_epsilon * dirichret[i];
+            }
+        }
+
         next_task = NextTask::SEARCH_TREE;
         return nullptr;
     }
@@ -243,7 +249,7 @@ private:
 
     shared_ptr<SearchPartialResult> search_tree()
     {
-        if (playout_count >= playout_limit)
+        if (playout_count >= config.playout_limit)
         {
             // playoutは終わり。指し手を決定する。
             next_task = NextTask::CHOOSE_MOVE;
@@ -277,7 +283,7 @@ private:
             return nullptr;
         }
 
-        int edge = MCTSBase::select_edge(node, c_puct);
+        int edge = MCTSBase::select_edge(node, config.c_puct);
         UndoInfo undo_info;
         b.do_move(static_cast<Move>(node->move_list[edge]), undo_info);
         path.push_back({node, edge});
@@ -329,18 +335,46 @@ private:
         float score = 0.0F;
         if (!root_node->terminal()) // terminalの場合はそもそもsearchが呼ばれないはず
         {
-            // TODO: 必要に応じてランダム要素を入れる
-            int best_n = -1;
             int best_idx = 0;
-            for (int i = 0; i < root_node->n_legal_moves; i++)
+            if (board.piece_sum() <= config.select_move_proportional_until_move)
             {
-                int value_n = root_node->value_n[i];
-                if (best_n < value_n)
+                // 訪問回数に比例
+                int v_sum = 0;
+                for (int i = 0; i < root_node->n_legal_moves; i++)
                 {
-                    best_n = value_n;
-                    best_idx = i;
+                    int value_n = root_node->value_n[i];
+                    v_sum += value_n;
+                }
+
+                uniform_int_distribution<int> dist(0, v_sum-1);
+                int ctr = dist(random_engine);
+
+                for (int i = 0; i < root_node->n_legal_moves; i++)
+                {
+                    int value_n = root_node->value_n[i];
+                    if (ctr < value_n)
+                    {
+                        best_idx = i;
+                        break;
+                    }
+                    ctr -= value_n;
                 }
             }
+            else
+            {
+                // 訪問回数最大を選択
+                int best_n = -1;
+                for (int i = 0; i < root_node->n_legal_moves; i++)
+                {
+                    int value_n = root_node->value_n[i];
+                    if (best_n < value_n)
+                    {
+                        best_n = value_n;
+                        best_idx = i;
+                    }
+                }
+            }
+
             move = static_cast<Move>(root_node->move_list[best_idx]);
             score = root_node->value_w[best_idx] / static_cast<float>(root_node->value_n[best_idx]);
         }

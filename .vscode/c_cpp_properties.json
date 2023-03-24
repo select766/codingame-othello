@@ -3,7 +3,9 @@
         {
             "name": "WSL",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/extern/pybind11/include",
+                "/home/select766/.pyenv/versions/3.9.13/include/python3.9"
             ],
             "defines": [
                 "MODE_RANDOM_MATCH"
@@ -11,8 +13,7 @@
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",
             "cppStandard": "gnu++17",
-            "intelliSenseMode": "linux-gcc-x64",
-            "configurationProvider": "ms-vscode.makefile-tools"
+            "intelliSenseMode": "linux-gcc-x64"
         }
     ],
     "version": 4

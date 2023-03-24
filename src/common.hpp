@@ -14,5 +14,6 @@
 #include "search_base.hpp"
 #include "search_greedy.hpp"
 #include "search_mcts.hpp"
+#include "search_mcts_train.hpp"
 #include "search_policy.hpp"
 #include "search_random.hpp"

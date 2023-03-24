@@ -10,21 +10,18 @@ public:
     float value_logit;
 };
 
-class DNNEvaluatorRequest
+class DNNInputFeature
 {
 public:
     float board_repr[BOARD_AREA * 3];
 };
 
-class DNNEvaluator
+class FeatureExtractor
 {
 public:
-    virtual DNNEvaluatorResult evaluate(const Board &board) = 0;
-
-protected:
-    DNNEvaluatorRequest make_request(const Board &board)
+    DNNInputFeature extract(const Board &board)
     {
-        DNNEvaluatorRequest req;
+        DNNInputFeature req;
         memset(&req, 0, sizeof(req));
         // board_repr: [pos(y,x),3] (NHWC)
         const int n_ch = 3;
@@ -34,7 +31,7 @@ protected:
             BoardPlane bb = board.plane(turn);
             for (int pos = 0; pos < BOARD_AREA; pos++)
             {
-                if (bb & (1 << pos))
+                if (bb & position_plane(pos))
                 {
                     req.board_repr[pos * n_ch + i] = 1.0F;
                 }
@@ -48,5 +45,11 @@ protected:
 
         return req;
     }
+};
+
+class DNNEvaluator
+{
+public:
+    virtual DNNEvaluatorResult evaluate(const Board &board) = 0;
 };
 #endif

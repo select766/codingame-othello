@@ -4,7 +4,7 @@ int main()
 {
     const int n_games = 100;
     shared_ptr<DNNEvaluator> evaluator(new DNNEvaluatorSocket("127.0.0.1", 8099));
-    SearchMCTSConfig mcts_config;
+    SearchMCTS::SearchMCTSConfig mcts_config;
     mcts_config.playout_limit = 16;
     mcts_config.table_size = mcts_config.playout_limit * 60 * 2;
     mcts_config.c_puct = 1.0;

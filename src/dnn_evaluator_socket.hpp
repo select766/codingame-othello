@@ -11,9 +11,10 @@
 class DNNEvaluatorSocket : public DNNEvaluator
 {
     int sock;
+    FeatureExtractor extractor;
 
 public:
-    DNNEvaluatorSocket(const char *ip_addr, int port)
+    DNNEvaluatorSocket(const char *ip_addr, int port) : extractor()
     {
         struct sockaddr_in addr;
         memset(&addr, 0, sizeof(addr));
@@ -44,7 +45,7 @@ public:
 
     DNNEvaluatorResult evaluate(const Board &board)
     {
-        DNNEvaluatorRequest req = make_request(board);
+        DNNInputFeature req = extractor.extract(board);
         auto send_size = send(sock, &req, sizeof(req), 0);
         if (send_size != sizeof(req))
         {
