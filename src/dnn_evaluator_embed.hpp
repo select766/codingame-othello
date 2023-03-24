@@ -107,18 +107,20 @@ class DNNEvaluatorEmbed : public DNNEvaluator
                 for (int oc = 0; oc < out_c; oc++)
                 {
                     float sum = b->v(oc);
-                    for (int ic = 0; ic < in_c; ic++)
-                        for (int ky = 0; ky < kh; ky++)
-                            for (int kx = 0; kx < kw; kx++)
+                    for (int ky = 0; ky < kh; ky++)
+                        for (int kx = 0; kx < kw; kx++)
+                        {
+                            int in_y = out_y * stride - pad + ky;
+                            int in_x = out_x * stride - pad + kx;
+                            if (in_y < 0 || in_y >= in_h || in_x < 0 || in_x >= in_w)
                             {
-                                int in_y = out_y * stride - pad + ky;
-                                int in_x = out_x * stride - pad + kx;
-                                if (in_y < 0 || in_y >= in_h || in_x < 0 || in_x >= in_w)
-                                {
-                                    continue;
-                                }
+                                continue;
+                            }
+                            for (int ic = 0; ic < in_c; ic++)
+                            {
                                 sum += x->v(0, in_y, in_x, ic) * w->v(ky, kx, ic, oc);
                             }
+                        }
 
                     y->v(0, out_y, out_x, oc) = sum;
                 }
@@ -196,7 +198,7 @@ public:
         p = conv2d(p, tensor({1, 1, 8, 8}, weight.conv_bn_7_conv2d_7_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_7_conv2d_7_bias), 0, 1);
         relu_inplace(p);
         p = conv2d(p, tensor({1, 1, 8, 1}, weight.conv2d_8_kernel), tensor({1, 1, 1, 1}, weight.conv2d_8_bias), 0, 1);
-    
+
         v = conv2d(v, tensor({1, 1, 8, 8}, weight.conv_bn_8_conv2d_9_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_8_conv2d_9_bias), 0, 1);
         relu_inplace(v);
         flatten_inplace(v);
