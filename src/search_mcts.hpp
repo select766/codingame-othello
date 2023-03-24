@@ -8,46 +8,14 @@
 // MCTS
 class SearchMCTS : public SearchBase
 {
-
-    class SearchPartialResult
-    {
-    public:
-        virtual ~SearchPartialResult() = default;
-    };
-
-    class SearchPartialResultMove : public SearchPartialResult
+    class ChooseMoveResult
     {
     public:
         Move move;
         float score;
     };
 
-    class SearchPartialResultEvalRequest : public SearchPartialResult
-    {
-    public:
-        Board board;                             // 評価対象局面
-        vector<pair<TreeNode *, int>> tree_path; // 探索木の経路。TreeNodeと、その中のエッジのインデックスのペア。leafがルートの場合は空。
-        TreeNode *leaf;                          // 末端ノードのTreeNode。
-    };
-
-    class EvalResult
-    {
-    public:
-        shared_ptr<SearchPartialResultEvalRequest> request;
-        float value_logit;
-        float policy_logits[BOARD_AREA];
-    };
-
     shared_ptr<TreeTable> tree_table;
-    enum NextTask
-    {
-        START_SEARCH,
-        ASSIGN_ROOT_EVAL,
-        SEARCH_TREE,
-        ASSIGN_LEAF_EVAL,
-        CHOOSE_MOVE,
-    };
-    NextTask next_task;
     int playout_count;
 
     TreeNode *root_node;
@@ -68,12 +36,10 @@ private:
     SearchMCTSConfig config;
 
 public:
-
     SearchMCTS(const SearchMCTSConfig &config, shared_ptr<DNNEvaluator> dnn_evaluator)
         : dnn_evaluator(dnn_evaluator),
           config(config),
           tree_table(new TreeTable(config.table_size)),
-          next_task(START_SEARCH),
           root_node(nullptr)
     {
     }
@@ -105,82 +71,43 @@ public:
         }
         else
         {
-            // TODO: 探索末端でdnn_evaluatorをコールする単純な構造に書き換え
-            EvalResult *eval_result = nullptr;
+            start_search();
+
             while (true)
             {
-                auto search_partial_result = search_partial(eval_result);
-                delete eval_result;
-                eval_result = nullptr;
-                auto result_move = dynamic_pointer_cast<SearchPartialResultMove>(search_partial_result);
-                if (result_move)
+                if (playout_count >= config.playout_limit || chrono::system_clock::now() > time_to_stop_search)
                 {
-                    stringstream ss;
-                    ss << "value score " << result_move->score << " playouts " << playout_count;
-                    msg = ss.str();
-                    return result_move->move;
+                    // playoutは終わり。指し手を決定する。
+                    break;
                 }
-                auto result_eval = dynamic_pointer_cast<SearchPartialResultEvalRequest>(search_partial_result);
-                if (result_eval)
-                {
-                    auto dnn_result = dnn_evaluator->evaluate(result_eval->board);
-                    eval_result = new EvalResult();
-                    memcpy(eval_result->policy_logits, dnn_result.policy_logits, sizeof(dnn_result.policy_logits));
-                    eval_result->value_logit = dnn_result.value_logit;
-                    eval_result->request = result_eval;
-                }
+
+                search_tree();
             }
+
+            auto choose_move_result = choose_move();
+            stringstream ss;
+            ss << "value score " << choose_move_result.score << " playouts " << playout_count;
+            msg = ss.str();
+            return choose_move_result.move;
         }
     }
 
-    // 局面の評価が必要か、指し手が決定するまで探索する
-    shared_ptr<SearchPartialResult> search_partial(const EvalResult *eval_result)
-    {
-        shared_ptr<SearchPartialResult> result;
-        do
-        {
-            switch (next_task)
-            {
-            case NextTask::START_SEARCH:
-                result = start_search();
-                break;
-            case NextTask::ASSIGN_ROOT_EVAL:
-                result = assign_root_eval(eval_result);
-                break;
-            case NextTask::SEARCH_TREE:
-                result = search_tree();
-                break;
-            case NextTask::ASSIGN_LEAF_EVAL:
-                result = assign_leaf_eval(eval_result);
-                break;
-            case NextTask::CHOOSE_MOVE:
-                result = choose_move();
-                break;
-            }
-        } while (!result);
-
-        return result;
-    }
-
 private:
-    shared_ptr<SearchPartialResult> start_search()
+    void start_search()
     {
         playout_count = 0; // root再利用の場合、すでに子ノードを訪問した回数だけ減らすことが考えられる
-        return make_root(board);
+        make_root(board);
     }
 
-    shared_ptr<SearchPartialResult> make_root(const Board &b)
+    void make_root(const Board &b)
     {
         // TODO: 探索木の再利用
         root_node = MCTSBase::make_node(b, tree_table.get());
         if (!root_node->terminal())
         {
             // 評価が必要
-            SearchPartialResultEvalRequest *req = new SearchPartialResultEvalRequest();
-            req->board.set(b);
-            req->leaf = root_node;
-            next_task = NextTask::ASSIGN_ROOT_EVAL;
-            return shared_ptr<SearchPartialResult>(req);
+            auto eval_result = dnn_evaluator->evaluate(b);
+            assign_eval_result_to_leaf(root_node, &eval_result);
         }
         else
         {
@@ -190,31 +117,7 @@ private:
         }
     }
 
-    shared_ptr<SearchPartialResult> assign_root_eval(const EvalResult *eval_result)
-    {
-        assert(eval_result);
-        auto prev_request = dynamic_pointer_cast<SearchPartialResultEvalRequest>(eval_result->request);
-        assert(prev_request);
-        auto leaf = prev_request->leaf;
-        assign_eval_result_to_leaf(leaf, eval_result);
-        // TODO: 学習データ作成時、ルートノードではディリクレノイズを加算。
-        next_task = NextTask::SEARCH_TREE;
-        return nullptr;
-    }
-
-    shared_ptr<SearchPartialResult> assign_leaf_eval(const EvalResult *eval_result)
-    {
-        assert(eval_result);
-        auto prev_request = dynamic_pointer_cast<SearchPartialResultEvalRequest>(eval_result->request);
-        assert(prev_request);
-        auto leaf = prev_request->leaf;
-        assign_eval_result_to_leaf(leaf, eval_result);
-        backup_path(prev_request->tree_path, leaf->score);
-        next_task = NextTask::SEARCH_TREE;
-        return nullptr;
-    }
-
-    float assign_eval_result_to_leaf(TreeNode *leaf, const EvalResult *eval_result)
+    float assign_eval_result_to_leaf(TreeNode *leaf, const DNNEvaluatorResult *eval_result)
     {
         leaf->score = tanh(eval_result->value_logit);
         assert(leaf->n_legal_moves);
@@ -246,40 +149,24 @@ private:
         return leaf->score;
     }
 
-    shared_ptr<SearchPartialResult> search_tree()
+    void search_tree()
     {
-        if (playout_count >= config.playout_limit || chrono::system_clock::now() > time_to_stop_search)
-        {
-            // playoutは終わり。指し手を決定する。
-            next_task = NextTask::CHOOSE_MOVE;
-            return nullptr;
-        }
-
         playout_count++;
-        auto result = search_root();
-        if (result)
-        {
-            next_task = NextTask::ASSIGN_LEAF_EVAL;
-        }
-        else
-        {
-            next_task = NextTask::SEARCH_TREE;
-        }
-        return result;
+        search_root();
     }
 
-    shared_ptr<SearchPartialResult> search_root()
+    void search_root()
     {
         vector<pair<TreeNode *, int>> path;
-        return search_recursive(board, root_node, path);
+        search_recursive(board, root_node, path);
     }
 
-    shared_ptr<SearchPartialResult> search_recursive(Board &b, TreeNode *node, vector<pair<TreeNode *, int>> &path)
+    void search_recursive(Board &b, TreeNode *node, vector<pair<TreeNode *, int>> &path)
     {
         if (node->terminal())
         {
             backup_path(path, node->score);
-            return nullptr;
+            return;
         }
 
         int edge = MCTSBase::select_edge(node, config.c_puct);
@@ -288,10 +175,9 @@ private:
         path.push_back({node, edge});
         int child_node_idx = node->children[edge];
         node->value_n[edge]++;
-        shared_ptr<SearchPartialResult> result;
         if (child_node_idx)
         {
-            result = search_recursive(b, tree_table->at(child_node_idx), path);
+            search_recursive(b, tree_table->at(child_node_idx), path);
         }
         else
         {
@@ -301,21 +187,14 @@ private:
             if (!child_node->terminal())
             {
                 // 評価が必要
-                SearchPartialResultEvalRequest *req = new SearchPartialResultEvalRequest();
-                req->board.set(b);
-                req->leaf = child_node;
-                req->tree_path = path;
-                result = shared_ptr<SearchPartialResult>(req);
+                auto eval_result = dnn_evaluator->evaluate(b);
+                assign_eval_result_to_leaf(child_node, &eval_result);
             }
-            else
-            {
-                // backup
-                backup_path(path, child_node->score);
-            }
+            // backup
+            backup_path(path, child_node->score);
         }
 
         b.undo_move(undo_info);
-        return result;
     }
 
     void backup_path(const vector<pair<TreeNode *, int>> &path, float leaf_score)
@@ -328,7 +207,7 @@ private:
         }
     }
 
-    shared_ptr<SearchPartialResult> choose_move()
+    ChooseMoveResult choose_move()
     {
         Move move = MOVE_PASS;
         float score = 0.0F;
@@ -350,11 +229,10 @@ private:
             score = root_node->value_w[best_idx] / static_cast<float>(root_node->value_n[best_idx]);
         }
 
-        next_task = NextTask::START_SEARCH;
-        auto result = new SearchPartialResultMove();
-        result->move = move;
-        result->score = score;
-        return shared_ptr<SearchPartialResult>(result);
+        ChooseMoveResult res;
+        res.move = move;
+        res.score = score;
+        return res;
     }
 };
 
