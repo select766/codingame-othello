@@ -1,6 +1,6 @@
 #include "common.hpp"
 
-#pragma GCC optimize("O3")
+
 
 int main()
 {
@@ -16,7 +16,13 @@ int main()
         return 1;
     }
 
-    SearchBase *ai = new SearchAlphaBetaIterative(120);
+    shared_ptr<DNNEvaluator> evaluator(new DNNEvaluatorEmbed());
+    SearchMCTS::SearchMCTSConfig mcts_config;
+    mcts_config.playout_limit = 64;
+    mcts_config.table_size = mcts_config.playout_limit * 60 * 2;
+    mcts_config.c_puct = 1.0;
+    mcts_config.time_limit_ms = 120;
+    SearchBase *ai = new SearchMCTS(mcts_config, evaluator);
     ai->newgame();
     // game loop
     while (1)

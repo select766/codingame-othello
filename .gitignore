@@ -38,3 +38,4 @@
 .ipynb_checkpoints
 *.pyc
 /model
+/src/_*

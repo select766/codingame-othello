@@ -38,8 +38,6 @@ class SearchMCTS : public SearchBase
         float policy_logits[BOARD_AREA];
     };
 
-    int playout_limit;
-    float c_puct;
     shared_ptr<TreeTable> tree_table;
     enum NextTask
     {
@@ -54,6 +52,7 @@ class SearchMCTS : public SearchBase
 
     TreeNode *root_node;
     shared_ptr<DNNEvaluator> dnn_evaluator;
+    chrono::system_clock::time_point time_to_stop_search; // 探索を終了すべき時刻
 
 public:
     class SearchMCTSConfig
@@ -62,13 +61,18 @@ public:
         int playout_limit;
         size_t table_size;
         float c_puct;
+        int time_limit_ms; // 探索時間の制限[ms]。これを超えたことを検知したら探索を終了する。ルール上の制限時間より短く設定する必要がある。
     };
+
+private:
+    SearchMCTSConfig config;
+
+public:
 
     SearchMCTS(const SearchMCTSConfig &config, shared_ptr<DNNEvaluator> dnn_evaluator)
         : dnn_evaluator(dnn_evaluator),
-          playout_limit(config.playout_limit),
+          config(config),
           tree_table(new TreeTable(config.table_size)),
-          c_puct(config.c_puct),
           next_task(START_SEARCH),
           root_node(nullptr)
     {
@@ -87,6 +91,8 @@ public:
     // 対局用
     Move search(string &msg)
     {
+        auto search_start_time = chrono::system_clock::now();
+        time_to_stop_search = search_start_time + chrono::milliseconds(config.time_limit_ms);
         vector<Move> move_list;
         board.legal_moves(move_list);
         if (move_list.empty())
@@ -100,7 +106,6 @@ public:
         else
         {
             // TODO: 探索末端でdnn_evaluatorをコールする単純な構造に書き換え
-            // TODO: 時間で打ち切る機能を追加
             EvalResult *eval_result = nullptr;
             while (true)
             {
@@ -111,7 +116,7 @@ public:
                 if (result_move)
                 {
                     stringstream ss;
-                    ss << "value score " << result_move->score;
+                    ss << "value score " << result_move->score << " playouts " << playout_count;
                     msg = ss.str();
                     return result_move->move;
                 }
@@ -243,7 +248,7 @@ private:
 
     shared_ptr<SearchPartialResult> search_tree()
     {
-        if (playout_count >= playout_limit)
+        if (playout_count >= config.playout_limit || chrono::system_clock::now() > time_to_stop_search)
         {
             // playoutは終わり。指し手を決定する。
             next_task = NextTask::CHOOSE_MOVE;
@@ -277,7 +282,7 @@ private:
             return nullptr;
         }
 
-        int edge = MCTSBase::select_edge(node, c_puct);
+        int edge = MCTSBase::select_edge(node, config.c_puct);
         UndoInfo undo_info;
         b.do_move(static_cast<Move>(node->move_list[edge]), undo_info);
         path.push_back({node, edge});

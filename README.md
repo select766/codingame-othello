@@ -88,3 +88,13 @@ python -m othello_train.eval_server_v1 model/debug/sm_9
 ```
 
 対戦相手は `main_random_match.cpp` 内にハードコードされている
+
+## モデルをソースコードに埋め込み
+
+codingame提出のため、Tensorflowを用いずC++ソースだけでモデルを実行する必要がある。DNNの重みをソースファイル上の定数として定義する。
+
+```
+python -m othello_train.embed_weight model/debug/sm_10 src/_dnn_weight.hpp
+```
+
+この状態で `make` すれば `/build/codingame.cpp` にモデルが埋め込まれた状態になる。

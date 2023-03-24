@@ -7,7 +7,9 @@
 #include <sstream>
 #include <chrono>
 #include <memory>
+#include "base64.hpp"
 #include "board.hpp"
+#include "dnn_evaluator_embed.hpp"
 #include "dnn_evaluator_socket.hpp"
 #include "search_alpha_beta_constant_depth.hpp"
 #include "search_alpha_beta_iterative.hpp"
