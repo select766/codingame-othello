@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("work_dir")
     parser.add_argument("--epoch", type=int, default=10)
+    parser.add_argument("--train_epoch", type=int, default=5)
     parser.add_argument("--games", type=int, default=10000)
     args = parser.parse_args()
 
@@ -32,7 +33,7 @@ def main():
         check_call(["python", "-m", "othello_train.playout_v1",
                    f"{work_dir}/sm_{epoch}", f"{records_dir}/records_{epoch}.bin", "--games", f"{args.games}"], records_dir / f"records_{epoch}.bin")
         check_call(["python", "-m", "othello_train.rl_train_v1", f"{work_dir}/cp_{epoch}/cp", f"{work_dir}/cp_{epoch+1}/cp",
-                   f"{records_dir}/records_{epoch}.bin"], work_dir / f"cp_{epoch+1}")
+                   f"{records_dir}/records_{epoch}.bin", "--epoch", f"{args.train_epoch}"], work_dir / f"cp_{epoch+1}")
         check_call(["python", "-m", "othello_train.checkpoint_to_savedmodel_v1",
                    f"{work_dir}/cp_{epoch+1}/cp", f"{work_dir}/sm_{epoch+1}"], work_dir / f"sm_{epoch+1}")
 

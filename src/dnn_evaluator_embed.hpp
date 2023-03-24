@@ -11,22 +11,28 @@ class DNNEvaluatorEmbed : public DNNEvaluator
     class DNNWeight
     {
     public:
-        float conv2d_kernel[216];
-        float conv2d_bias[8];
-        float conv2d_1_kernel[576];
-        float conv2d_1_bias[8];
-        float conv2d_2_kernel[576];
-        float conv2d_2_bias[8];
-        float conv2d_3_kernel[576];
-        float conv2d_3_bias[8];
-        float conv2d_4_kernel[576];
-        float conv2d_4_bias[8];
-        float conv2d_5_kernel[8];
-        float conv2d_5_bias[1];
-        float conv2d_6_kernel[64];
-        float conv2d_6_bias[8];
+        float conv2d_8_kernel[8];
+        float conv2d_8_bias[1];
         float dense_kernel[512];
         float dense_bias[1];
+        float conv_bn_conv2d_kernel[216];
+        float conv_bn_conv2d_bias[8];
+        float conv_bn_1_conv2d_1_kernel[576];
+        float conv_bn_1_conv2d_1_bias[8];
+        float conv_bn_2_conv2d_2_kernel[576];
+        float conv_bn_2_conv2d_2_bias[8];
+        float conv_bn_3_conv2d_3_kernel[576];
+        float conv_bn_3_conv2d_3_bias[8];
+        float conv_bn_4_conv2d_4_kernel[576];
+        float conv_bn_4_conv2d_4_bias[8];
+        float conv_bn_5_conv2d_5_kernel[576];
+        float conv_bn_5_conv2d_5_bias[8];
+        float conv_bn_6_conv2d_6_kernel[576];
+        float conv_bn_6_conv2d_6_bias[8];
+        float conv_bn_7_conv2d_7_kernel[64];
+        float conv_bn_7_conv2d_7_bias[8];
+        float conv_bn_8_conv2d_9_kernel[64];
+        float conv_bn_8_conv2d_9_bias[8];
     };
     FeatureExtractor extractor;
     DNNWeight weight;
@@ -170,22 +176,28 @@ public:
     {
         DNNInputFeature req = extractor.extract(board);
         PTensor h = tensor({1, BOARD_SIZE, BOARD_SIZE, 3}, req.board_repr);
-        h = conv2d(h, tensor({3, 3, 3, 8}, weight.conv2d_kernel), tensor({1, 1, 1, 8}, weight.conv2d_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, 3, 8}, weight.conv_bn_conv2d_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_conv2d_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv2d_1_kernel), tensor({1, 1, 1, 8}, weight.conv2d_1_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_1_conv2d_1_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_1_conv2d_1_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv2d_2_kernel), tensor({1, 1, 1, 8}, weight.conv2d_2_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_2_conv2d_2_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_2_conv2d_2_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv2d_3_kernel), tensor({1, 1, 1, 8}, weight.conv2d_3_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_3_conv2d_3_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_3_conv2d_3_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv2d_4_kernel), tensor({1, 1, 1, 8}, weight.conv2d_4_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_4_conv2d_4_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_4_conv2d_4_bias), 1, 1);
+        relu_inplace(h);
+        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_5_conv2d_5_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_5_conv2d_5_bias), 1, 1);
+        relu_inplace(h);
+        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_6_conv2d_6_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_6_conv2d_6_bias), 1, 1);
         relu_inplace(h);
 
         auto p = h, v = h;
 
-        p = conv2d(p, tensor({1, 1, 8, 1}, weight.conv2d_5_kernel), tensor({1, 1, 1, 1}, weight.conv2d_5_bias), 0, 1);
-
-        v = conv2d(v, tensor({1, 1, 8, 8}, weight.conv2d_6_kernel), tensor({1, 1, 1, 8}, weight.conv2d_6_bias), 0, 1);
+        p = conv2d(p, tensor({1, 1, 8, 8}, weight.conv_bn_7_conv2d_7_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_7_conv2d_7_bias), 0, 1);
+        relu_inplace(p);
+        p = conv2d(p, tensor({1, 1, 8, 1}, weight.conv2d_8_kernel), tensor({1, 1, 1, 1}, weight.conv2d_8_bias), 0, 1);
+    
+        v = conv2d(v, tensor({1, 1, 8, 8}, weight.conv_bn_8_conv2d_9_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_8_conv2d_9_bias), 0, 1);
         relu_inplace(v);
         flatten_inplace(v);
         v = dense(v, tensor({512, 1, 1, 1}, weight.dense_kernel), tensor({1, 1, 1, 1}, weight.dense_bias));
