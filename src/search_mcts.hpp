@@ -94,6 +94,22 @@ public:
         }
     }
 
+    string print_tree() const
+    {
+        /*
+        木構造を可視化
+        指し手、静的評価、policy確率、訪問回数、平均報酬
+        root
+        -d3   +0.12 30% 100 +0.62
+        --e3  -0.02 40%  50 +0.25
+        -c4   +0.01 40%  25 -0.50
+        */
+        stringstream ss;
+        ss << "move   score policy visit avg" << endl;
+        print_tree_recursive(ss, root_node, MOVE_PASS, 0.0F, 0, 0.0F, 0);
+        return ss.str();
+    }
+
 private:
     void start_search()
     {
@@ -294,6 +310,65 @@ private:
         res.move = move;
         res.score = score;
         return res;
+    }
+
+    void print_tree_recursive(stringstream &ss, const TreeNode *node, Move last_move, float value_p, int value_n, float avg_w, int depth) const
+    {
+        float sign = depth % 2 == 0 ? 1.0 : -1.0; // rootからみた評価値の符号にする
+        if (depth != 0)
+        {
+            for (int i = 0; i < depth - 1; i++)
+            {
+                ss << " ";
+            }
+            ss << move_to_str(last_move);
+            for (int i = 0; i < 6 - depth; i++)
+            {
+                ss << " ";
+            }
+            char buf[1024];
+            if (node)
+            {
+                snprintf(buf, sizeof(buf), "%+.2f ", node->score * sign);
+            }
+            else
+            {
+                snprintf(buf, sizeof(buf), "    * ");
+            }
+            ss << buf;
+            snprintf(buf, sizeof(buf), "%2d%%    %5d %+.2f", int(value_p * 100), value_n, avg_w);
+            ss << buf << endl;
+        }
+
+        if (node)
+        {
+            // 訪問回数の降順で表示
+            auto &child_value_n = node->value_n;
+            int sum_value_n = reduce(&child_value_n[0], &child_value_n[node->n_legal_moves]);
+            if (sum_value_n == 0)
+            {
+                // 子ノードのいずれにも訪問していない場合は、子ノードリストを表示しない（非常に長くなるため）
+                return;
+            }
+            std::vector<size_t> indices(node->n_legal_moves);
+            std::iota(indices.begin(), indices.end(), 0);
+            std::sort(indices.begin(), indices.end(),
+                      [&child_value_n](int left, int right) -> bool
+                      {
+                          // sort indices according to corresponding array element
+                          return child_value_n[left] > child_value_n[right];
+                      });
+            for (auto edge : indices)
+            {
+                int child_idx = node->children[edge];
+                TreeNode *child_node = nullptr;
+                if (child_idx)
+                {
+                    child_node = tree_table->at(child_idx);
+                }
+                print_tree_recursive(ss, child_node, node->move_list[edge], node->value_p[edge], node->value_n[edge], node->value_w[edge] / (max(node->value_n[edge], 1)) * sign, depth + 1);
+            }
+        }
     }
 };
 
