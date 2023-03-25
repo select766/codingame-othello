@@ -81,8 +81,8 @@ public:
 
 namespace MCTSBase
 {
-    
-    TreeNode *make_node(const Board &b, TreeTable* tree_table)
+    // 局面に対応するノードを生成する。b.is_gameover()の場合は、末端ノードとなる。また、mate_search==trueかつ詰みが見つかった場合も末端ノードとなる。
+    TreeNode *make_node(const Board &b, TreeTable* tree_table, bool mate_search, bool &mate_found, Move &mate_move)
     {
         TreeNode *tn = tree_table->alloc();
         tn->clear();
@@ -106,11 +106,25 @@ namespace MCTSBase
             terminal = true;
         }
 
-        tn->score = score;
         if (!terminal)
         {
             vector<Move> legal_moves;
-            b.legal_moves(legal_moves, true);
+            if (mate_search)
+            {
+                mate_found = b.legal_moves_with_mate_1ply(legal_moves, true, mate_move);
+                if (mate_found)
+                {
+                    // 勝ちなのでscoreを設定
+                    // n_legal_moves==0となるので、terminalとして扱われる
+                    score = 1.0F;
+                }
+            }
+            else
+            {
+                b.legal_moves(legal_moves, true);
+            }
+            
+            // mate_found == trueの場合はlegal_moves.size()==0
             tn->n_legal_moves = legal_moves.size();
             for (int i = 0; i < legal_moves.size(); i++)
             {
@@ -122,6 +136,7 @@ namespace MCTSBase
         {
             tn->n_legal_moves = 0;
         }
+        tn->score = score;
         return tn;
     }
 

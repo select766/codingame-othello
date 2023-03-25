@@ -24,6 +24,8 @@ public:
         float root_noise_epsilon;
         // 盤上の石の数がこの値以下の時、ノードの訪問回数に比例した確率で指し手を選択する
         int select_move_proportional_until_move;
+        // 一手詰め探索を用いるか
+        bool mate_1ply;
     };
 
         class SearchPartialResult
@@ -148,7 +150,18 @@ private:
     shared_ptr<SearchPartialResult> make_root(const Board &b)
     {
         // 学習時は探索木の再利用をしない。ルートにディレクレノイズを足した状態で探索する必要があるため、ノイズが足されていない子ノードをルートとして再利用すると結果が変化する。
-        root_node = MCTSBase::make_node(b, tree_table.get());
+        bool mate_found;
+        Move mate_move;
+        root_node = MCTSBase::make_node(b, tree_table.get(), config.mate_1ply, mate_found, mate_move);
+        if (config.mate_1ply && mate_found)
+        {
+            // 詰みの手が見つかったのでそれを指して終わり
+            next_task = NextTask::START_SEARCH;
+            auto result = new SearchPartialResultMove();
+            result->move = mate_move;
+            result->score = 1.0F;
+            return shared_ptr<SearchPartialResult>(result);
+        }
         if (!root_node->terminal())
         {
             // 評価が必要
@@ -301,11 +314,13 @@ private:
         else
         {
             // 子ノードがまだ生成されていない
-            TreeNode *child_node = MCTSBase::make_node(b, tree_table.get());
+            bool mate_found;
+            Move mate_move;
+            TreeNode *child_node = MCTSBase::make_node(b, tree_table.get(), config.mate_1ply, mate_found, mate_move);
             node->children[edge] = tree_table->get_index(child_node);
             if (!child_node->terminal())
             {
-                // 評価が必要
+                // この場でバックアップできず、局面評価が必要
                 SearchPartialResultEvalRequest *req = new SearchPartialResultEvalRequest();
                 req->board.set(b);
                 req->leaf = child_node;
@@ -314,7 +329,7 @@ private:
             }
             else
             {
-                // backup
+                // 終局または詰みが見つかった場合
                 backup_path(path, child_node->score);
             }
         }

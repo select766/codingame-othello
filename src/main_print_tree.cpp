@@ -33,6 +33,7 @@ int main(int argc, char *argv[])
     mcts_config.table_size = mcts_config.playout_limit * 2;
     mcts_config.c_puct = 1.0;
     mcts_config.time_limit_ms = 1000;
+    mcts_config.mate_1ply = true;
     SearchMCTS *ai = new SearchMCTS(mcts_config, evaluator);
     ai->newgame();
 

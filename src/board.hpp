@@ -300,6 +300,65 @@ public:
         result &= ~(player | opponent);
     }
 
+    bool legal_moves_with_mate_1ply(vector<Move> &move_list, bool with_pass, Move &mate_move) const
+    {
+        // 合法手を列挙し、その中で相手を全滅させる手があればその手をmate_moveに代入し、trueを返す。
+        // そのような手がなければfalseを返す。
+        // trueを返した場合、move_listの内容は空。
+        BoardPlane bb;
+        move_list.clear();
+        if (legal_moves_bb_with_mate_1ply(bb, mate_move))
+        {
+            // 詰ませる手があるならそれを指せばいいので、高速化のため合法手リストを作らない
+            return true;
+        }
+
+        for (int pos = 0; pos < BOARD_AREA; pos++)
+        {
+            if (bb & position_plane(pos))
+            {
+                move_list.push_back(pos);
+            }
+        }
+
+        if (with_pass && move_list.empty())
+        {
+            move_list.push_back(MOVE_PASS);
+        }
+
+        return false;
+    }
+
+    bool legal_moves_bb_with_mate_1ply(BoardPlane &legal_moves, Move &mate_move) const
+    {
+        // 合法手を列挙し、その中で相手を全滅させる手があればその手をmate_moveに代入し、trueを返す。
+        // そのような手がなければfalseを返す。
+        legal_moves_bb(legal_moves);
+        if (!legal_moves)
+        {
+            return false;
+        }
+        
+        BoardPlane player = planes[_turn], opponent = planes[1 - _turn];
+        for (int pos = 0; pos < BOARD_AREA; pos++)
+        {
+            BoardPlane position = position_plane(pos);
+            if (legal_moves & position_plane(pos))
+            {
+                BoardPlane reverse_plane = reverse(player, opponent, position);
+                // BoardPlane player_next = player ^ position ^ reverse_plane;
+                BoardPlane opponent_next = opponent ^ reverse_plane;
+                if (!opponent_next)
+                {
+                    // 相手の石がすべてなくなった
+                    mate_move = pos;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // 手が合法かチェックする。ただし、MOVE_PASSは扱えない。
     bool is_legal(Move move) const
     {

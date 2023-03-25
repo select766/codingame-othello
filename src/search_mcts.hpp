@@ -31,6 +31,7 @@ public:
         size_t table_size;
         float c_puct;
         int time_limit_ms; // 探索時間の制限[ms]。これを超えたことを検知したら探索を終了する。ルール上の制限時間より短く設定する必要がある。
+        bool mate_1ply;    // 一手詰め探索を用いるか
     };
 
 private:
@@ -62,7 +63,20 @@ public:
         auto search_start_time = chrono::system_clock::now();
         time_to_stop_search = search_start_time + chrono::milliseconds(config.time_limit_ms);
         vector<Move> move_list;
-        board.legal_moves(move_list);
+        if (config.mate_1ply)
+        {
+            Move mate_move;
+            if (board.legal_moves_with_mate_1ply(move_list, false, mate_move))
+            {
+                // 詰みあり
+                msg = "mate found";
+                return mate_move;
+            }
+        }
+        else
+        {
+            board.legal_moves(move_list, false);
+        }
         if (move_list.empty())
         {
             return MOVE_PASS;
@@ -114,28 +128,30 @@ private:
     void start_search()
     {
         TreeNode *existing_root = find_existing_root(root_node, root_board, board);
-        if (existing_root)
+        playout_count = 0; // root再利用の場合、すでに子ノードを訪問した回数だけ減らす
+        root_board = board;
+        // existing_root->terminal()となるのは詰み探索で詰みと判定された場合に起こりうる。ただしsearch()内で同様の詰み判定をしている限りはstart_search()は実行されない。詰み判定基準が異なる場合にはこの条件判断が起こりうる。
+        if (existing_root && !existing_root->terminal())
         {
             // 探索木中にルート局面があった
-            playout_count = 0; // root再利用の場合、すでに子ノードを訪問した回数だけ減らす
             for (int edge = 0; edge < existing_root->n_legal_moves; edge++)
             {
                 playout_count += existing_root->value_n[edge];
             }
             root_node = existing_root;
-            root_board = board;
         }
         else
         {
-            playout_count = 0;
-            root_board = board;
             make_root(board);
         }
     }
 
     void make_root(const Board &b)
     {
-        root_node = MCTSBase::make_node(b, tree_table.get());
+        bool mate_found;
+        Move mate_move;
+        // 詰み探索は、searchの合法手列挙のタイミングで実施済み
+        root_node = MCTSBase::make_node(b, tree_table.get(), false, mate_found, mate_move);
         if (!root_node->terminal())
         {
             // 評価が必要
@@ -260,7 +276,9 @@ private:
         else
         {
             // 子ノードがまだ生成されていない
-            TreeNode *child_node = MCTSBase::make_node(b, tree_table.get());
+            bool mate_found;
+            Move mate_move;
+            TreeNode *child_node = MCTSBase::make_node(b, tree_table.get(), config.mate_1ply, mate_found, mate_move);
             node->children[edge] = tree_table->get_index(child_node);
             if (!child_node->terminal())
             {

@@ -283,6 +283,7 @@ int init_playout(const string &record_path, int parallel, int playout_limit)
     mcts_config.root_noise_dirichret_alpha = 1.6; // AlphaZeroで将棋の場合0.15。平均合法手数に反比例。将棋は80、オセロは（手元の実測で）7.5。
     mcts_config.root_noise_epsilon = 0.25;
     mcts_config.select_move_proportional_until_move = BOARD_AREA; // 常に訪問回数に比例
+    mcts_config.mate_1ply = true;
 
     parallel_playout = shared_ptr<ParallelPlayout>(new ParallelPlayout(fout, mcts_config, parallel));
 

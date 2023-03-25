@@ -10,6 +10,7 @@ int main()
     mcts_config.table_size = mcts_config.playout_limit * 60 * 2;
     mcts_config.c_puct = 1.0;
     mcts_config.time_limit_ms = 1000;
+    mcts_config.mate_1ply = true;
     SearchBase *ais[] = {new SearchRandom(), new SearchMCTS(mcts_config, evaluator)};
     int player_win_count[N_PLAYER] = {0};
     int color_win_count[N_PLAYER] = {0};
