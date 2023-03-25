@@ -62,6 +62,22 @@ def merge_bn_to_conv_all(weight_dict):
         prefix_conv = prefix_to_conv[common_prefix]
         merge_bn_to_conv(weight_dict, prefix_conv, prefix_bn)
 
+
+def to_bfloat16(array):
+    array = array.astype(np.float32)
+    u32 = array.view(np.uint32)
+    # https://www.slideshare.net/RCCSRENKEI/11-a2021-249473015
+    # 誤差を減らすテクニック: 削除対象の最上位ビットが1なら切り上げ
+    rounding = ((u32 >> 16) & 1) + 0x7fff
+    return ((u32 + rounding) >> 16).astype(np.uint16)
+    # return ((u32) >> 16).astype(np.uint16)
+
+
+def to_bfloat16_all(weight_dict):
+    for name in weight_dict.keys():
+        weight_dict[name] = to_bfloat16(weight_dict[name])
+
+
 def embed_weight(weight_dict):
     struct_def = ""
     flat_binary = b""
@@ -72,6 +88,7 @@ def embed_weight(weight_dict):
         flat_binary += array.tobytes()
     return struct_def, flat_binary
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("savedmodel_dir")
@@ -80,6 +97,7 @@ def main():
 
     weight_dict = model_to_weight_dict(args.savedmodel_dir)
     merge_bn_to_conv_all(weight_dict)
+    to_bfloat16_all(weight_dict)
     struct_def, flat_binary = embed_weight(weight_dict)
 
     print(struct_def)

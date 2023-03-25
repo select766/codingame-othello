@@ -5,8 +5,9 @@
 
 bool isclose(float expect, float actual)
 {
-    float atol = 1e-3;
-    float rtol = 1e-2;
+    // bfloat16の場合、大きな誤差が出る場合がある
+    float atol = 1e-0;
+    float rtol = 1e-1;
 
     return abs(expect - actual) <= atol + rtol * abs(expect);
 }

@@ -15,7 +15,7 @@ class ConvBN(Model):
         return x
 
 class OthelloModelV1(Model):
-    def __init__(self, ch=8):
+    def __init__(self, ch=16):
         super().__init__()
         # Conv2Dのデフォルトはdata_format="channels_last" (NHWC)
         # data_format="channels_first" (NCHW)はCPUでの推論が対応してない

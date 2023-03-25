@@ -11,28 +11,28 @@ class DNNEvaluatorEmbed : public DNNEvaluator
     class DNNWeight
     {
     public:
-        float conv2d_8_kernel[8];
+        float conv2d_8_kernel[16];
         float conv2d_8_bias[1];
-        float dense_kernel[512];
+        float dense_kernel[1024];
         float dense_bias[1];
-        float conv_bn_conv2d_kernel[216];
-        float conv_bn_conv2d_bias[8];
-        float conv_bn_1_conv2d_1_kernel[576];
-        float conv_bn_1_conv2d_1_bias[8];
-        float conv_bn_2_conv2d_2_kernel[576];
-        float conv_bn_2_conv2d_2_bias[8];
-        float conv_bn_3_conv2d_3_kernel[576];
-        float conv_bn_3_conv2d_3_bias[8];
-        float conv_bn_4_conv2d_4_kernel[576];
-        float conv_bn_4_conv2d_4_bias[8];
-        float conv_bn_5_conv2d_5_kernel[576];
-        float conv_bn_5_conv2d_5_bias[8];
-        float conv_bn_6_conv2d_6_kernel[576];
-        float conv_bn_6_conv2d_6_bias[8];
-        float conv_bn_7_conv2d_7_kernel[64];
-        float conv_bn_7_conv2d_7_bias[8];
-        float conv_bn_8_conv2d_9_kernel[64];
-        float conv_bn_8_conv2d_9_bias[8];
+        float conv_bn_conv2d_kernel[432];
+        float conv_bn_conv2d_bias[16];
+        float conv_bn_1_conv2d_1_kernel[2304];
+        float conv_bn_1_conv2d_1_bias[16];
+        float conv_bn_2_conv2d_2_kernel[2304];
+        float conv_bn_2_conv2d_2_bias[16];
+        float conv_bn_3_conv2d_3_kernel[2304];
+        float conv_bn_3_conv2d_3_bias[16];
+        float conv_bn_4_conv2d_4_kernel[2304];
+        float conv_bn_4_conv2d_4_bias[16];
+        float conv_bn_5_conv2d_5_kernel[2304];
+        float conv_bn_5_conv2d_5_bias[16];
+        float conv_bn_6_conv2d_6_kernel[2304];
+        float conv_bn_6_conv2d_6_bias[16];
+        float conv_bn_7_conv2d_7_kernel[256];
+        float conv_bn_7_conv2d_7_bias[16];
+        float conv_bn_8_conv2d_9_kernel[256];
+        float conv_bn_8_conv2d_9_bias[16];
     };
     FeatureExtractor extractor;
     DNNWeight weight;
@@ -163,11 +163,28 @@ class DNNEvaluatorEmbed : public DNNEvaluator
         x->strides = {x->strides[0], 0, 0, 1};
     }
 
+    void set_weight_float32(const uint8_t* raw)
+    {
+        memcpy(&weight, raw, sizeof(weight));
+    }
+
+    void set_weight_bfloat16(const uint8_t* raw)
+    {
+        uint8_t *ptr = reinterpret_cast<uint8_t*>(&weight);
+        for (size_t i = 0; i < sizeof(weight); i += 4)
+        {
+            ptr[i] = 0;
+            ptr[i+1] = 0;
+            ptr[i+2] = *raw++;
+            ptr[i+3] = *raw++;
+        }
+    }
+
 public:
     DNNEvaluatorEmbed() : extractor()
     {
         auto weight_raw = b64decode(dnn_weight_base64, sizeof(dnn_weight_base64) - 1);
-        memcpy(&weight, &weight_raw[0], sizeof(weight));
+        set_weight_bfloat16(&weight_raw[0]);
     }
 
     ~DNNEvaluatorEmbed()
@@ -177,32 +194,33 @@ public:
     DNNEvaluatorResult evaluate(const Board &board)
     {
         DNNInputFeature req = extractor.extract(board);
+        const int ch = 16;
         PTensor h = tensor({1, BOARD_SIZE, BOARD_SIZE, 3}, req.board_repr);
-        h = conv2d(h, tensor({3, 3, 3, 8}, weight.conv_bn_conv2d_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_conv2d_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, 3, ch}, weight.conv_bn_conv2d_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_conv2d_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_1_conv2d_1_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_1_conv2d_1_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, ch, ch}, weight.conv_bn_1_conv2d_1_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_1_conv2d_1_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_2_conv2d_2_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_2_conv2d_2_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, ch, ch}, weight.conv_bn_2_conv2d_2_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_2_conv2d_2_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_3_conv2d_3_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_3_conv2d_3_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, ch, ch}, weight.conv_bn_3_conv2d_3_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_3_conv2d_3_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_4_conv2d_4_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_4_conv2d_4_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, ch, ch}, weight.conv_bn_4_conv2d_4_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_4_conv2d_4_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_5_conv2d_5_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_5_conv2d_5_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, ch, ch}, weight.conv_bn_5_conv2d_5_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_5_conv2d_5_bias), 1, 1);
         relu_inplace(h);
-        h = conv2d(h, tensor({3, 3, 8, 8}, weight.conv_bn_6_conv2d_6_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_6_conv2d_6_bias), 1, 1);
+        h = conv2d(h, tensor({3, 3, ch, ch}, weight.conv_bn_6_conv2d_6_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_6_conv2d_6_bias), 1, 1);
         relu_inplace(h);
 
         auto p = h, v = h;
 
-        p = conv2d(p, tensor({1, 1, 8, 8}, weight.conv_bn_7_conv2d_7_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_7_conv2d_7_bias), 0, 1);
+        p = conv2d(p, tensor({1, 1, ch, ch}, weight.conv_bn_7_conv2d_7_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_7_conv2d_7_bias), 0, 1);
         relu_inplace(p);
-        p = conv2d(p, tensor({1, 1, 8, 1}, weight.conv2d_8_kernel), tensor({1, 1, 1, 1}, weight.conv2d_8_bias), 0, 1);
+        p = conv2d(p, tensor({1, 1, ch, 1}, weight.conv2d_8_kernel), tensor({1, 1, 1, 1}, weight.conv2d_8_bias), 0, 1);
 
-        v = conv2d(v, tensor({1, 1, 8, 8}, weight.conv_bn_8_conv2d_9_kernel), tensor({1, 1, 1, 8}, weight.conv_bn_8_conv2d_9_bias), 0, 1);
+        v = conv2d(v, tensor({1, 1, ch, ch}, weight.conv_bn_8_conv2d_9_kernel), tensor({1, 1, 1, ch}, weight.conv_bn_8_conv2d_9_bias), 0, 1);
         relu_inplace(v);
         flatten_inplace(v);
-        v = dense(v, tensor({512, 1, 1, 1}, weight.dense_kernel), tensor({1, 1, 1, 1}, weight.dense_bias));
+        v = dense(v, tensor({ch * BOARD_AREA, 1, 1, 1}, weight.dense_kernel), tensor({1, 1, 1, 1}, weight.dense_bias));
 
         DNNEvaluatorResult res;
         memcpy(res.policy_logits, p->data, sizeof(res.policy_logits));
