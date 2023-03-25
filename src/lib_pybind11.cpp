@@ -278,7 +278,7 @@ int init_playout(const string &record_path, int parallel, int playout_limit)
 
     SearchMCTSTrain::SearchMCTSConfig mcts_config;
     mcts_config.playout_limit = playout_limit;
-    mcts_config.table_size = (mcts_config.playout_limit + 2) * 60; // ルート局面＋マージン
+    mcts_config.table_size = mcts_config.playout_limit + 16; // 1手ごとに探索木を初期化するので、プレイアウト数＋マージンでOK
     mcts_config.c_puct = 1.0;
     mcts_config.root_noise_dirichret_alpha = 1.6; // AlphaZeroで将棋の場合0.15。平均合法手数に反比例。将棋は80、オセロは（手元の実測で）7.5。
     mcts_config.root_noise_epsilon = 0.25;

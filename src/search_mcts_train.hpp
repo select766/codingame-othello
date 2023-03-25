@@ -139,7 +139,9 @@ public:
 private:
     shared_ptr<SearchPartialResult> start_search()
     {
-        playout_count = 0; // root再利用の場合、すでに子ノードを訪問した回数だけ減らすことが考えられる
+        // 探索木の再利用をしないので、テーブルを初期化する。これによりテーブルのサイズは1手当たりのプレイアウト数+αだけで済む。
+        tree_table->clear();
+        playout_count = 0;
         return make_root(board);
     }
 
