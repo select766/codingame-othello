@@ -17,12 +17,20 @@ bool input_board(Board &b)
     return false;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     shared_ptr<DNNEvaluator> evaluator(new DNNEvaluatorEmbed());
     SearchMCTS::SearchMCTSConfig mcts_config;
-    mcts_config.playout_limit = 16;
-    mcts_config.table_size = mcts_config.playout_limit * 60 * 2;
+    // usage: print_tree [playout_limit]
+    if (argc >= 2)
+    {
+        mcts_config.playout_limit = atoi(argv[1]);
+    }
+    else
+    {
+        mcts_config.playout_limit = 16;
+    }
+    mcts_config.table_size = mcts_config.playout_limit * 2;
     mcts_config.c_puct = 1.0;
     mcts_config.time_limit_ms = 1000;
     SearchMCTS *ai = new SearchMCTS(mcts_config, evaluator);
@@ -32,6 +40,7 @@ int main()
     while (input_board(b))
     {
         string msg;
+        ai->newgame();
         ai->board.set(b);
         ai->search(msg);
         cout << b.pretty_print() << endl;
