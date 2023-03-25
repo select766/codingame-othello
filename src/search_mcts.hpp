@@ -19,6 +19,7 @@ class SearchMCTS : public SearchBase
     int playout_count;
 
     TreeNode *root_node;
+    Board root_board;
     shared_ptr<DNNEvaluator> dnn_evaluator;
     chrono::system_clock::time_point time_to_stop_search; // 探索を終了すべき時刻
 
@@ -52,6 +53,7 @@ public:
     void newgame()
     {
         tree_table->clear();
+        root_node = nullptr;
     }
 
     // 対局用
@@ -95,13 +97,28 @@ public:
 private:
     void start_search()
     {
-        playout_count = 0; // root再利用の場合、すでに子ノードを訪問した回数だけ減らすことが考えられる
-        make_root(board);
+        TreeNode *existing_root = find_existing_root(root_node, root_board, board);
+        if (existing_root)
+        {
+            // 探索木中にルート局面があった
+            playout_count = 0; // root再利用の場合、すでに子ノードを訪問した回数だけ減らす
+            for (int edge = 0; edge < existing_root->n_legal_moves; edge++)
+            {
+                playout_count += existing_root->value_n[edge];
+            }
+            root_node = existing_root;
+            root_board = board;
+        }
+        else
+        {
+            playout_count = 0;
+            root_board = board;
+            make_root(board);
+        }
     }
 
     void make_root(const Board &b)
     {
-        // TODO: 探索木の再利用
         root_node = MCTSBase::make_node(b, tree_table.get());
         if (!root_node->terminal())
         {
@@ -115,6 +132,51 @@ private:
             cerr << "make_root called on terminal" << endl;
             exit(1);
         }
+    }
+
+    TreeNode *find_existing_root(TreeNode *last_root_node, const Board &last_root_board, const Board &query)
+    {
+        // 探索開始局面が既存の木に存在すれば、それを返す
+        if (last_root_node == nullptr)
+        {
+            return nullptr;
+        }
+        Board b(last_root_board);
+        return find_existing_root_recursive(last_root_node, b, query, 4); // パスや、合法手が1つしかなかった場合、2手では足りない可能性がある
+    }
+
+    TreeNode *find_existing_root_recursive(TreeNode *node, Board &b, const Board &query, int depth)
+    {
+        if (b == query)
+        {
+            return node;
+        }
+        if (depth == 0)
+        {
+            return nullptr;
+        }
+        if (node->terminal())
+        {
+            return nullptr;
+        }
+
+        for (int edge = 0; edge < node->n_legal_moves; edge++)
+        {
+            int child_node_idx = node->children[edge];
+            if (child_node_idx)
+            {
+                UndoInfo undo_info;
+                b.do_move(node->move_list[edge], undo_info);
+                TreeNode *found = find_existing_root_recursive(tree_table->at(child_node_idx), b, query, depth - 1);
+                b.undo_move(undo_info);
+                if (found)
+                {
+                    return found;
+                }
+            }
+        }
+
+        return nullptr;
     }
 
     float assign_eval_result_to_leaf(TreeNode *leaf, const DNNEvaluatorResult *eval_result)
@@ -213,7 +275,6 @@ private:
         float score = 0.0F;
         if (!root_node->terminal()) // terminalの場合はそもそもsearchが呼ばれないはず
         {
-            // TODO: 必要に応じてランダム要素を入れる
             int best_n = -1;
             int best_idx = 0;
             for (int i = 0; i < root_node->n_legal_moves; i++)
