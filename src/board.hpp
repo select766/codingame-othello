@@ -302,6 +302,11 @@ public:
         {
             return true;
         }
+        if (planes[0] == 0 || planes[1] == 0)
+        {
+            // 全滅
+            return true;
+        }
         if (~(planes[0] | planes[1]) == 0)
         {
             return true;
