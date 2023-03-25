@@ -310,14 +310,27 @@ private:
         if (!root_node->terminal()) // terminalの場合はそもそもsearchが呼ばれないはず
         {
             int best_n = -1;
+            float best_avg_w = -1000.0F;
             int best_idx = 0;
             for (int i = 0; i < root_node->n_legal_moves; i++)
             {
                 int value_n = root_node->value_n[i];
+                float avg_w = root_node->value_w[i] / static_cast<float>(value_n);
                 if (best_n < value_n)
                 {
                     best_n = value_n;
+                    best_avg_w = avg_w;
                     best_idx = i;
+                }
+                else if (best_n == value_n)
+                {
+                    // 訪問回数が同じなら評価値で比較
+                    if (best_avg_w < avg_w)
+                    {
+                        best_n = value_n;
+                        best_avg_w = avg_w;
+                        best_idx = i;
+                    }
                 }
             }
             move = static_cast<Move>(root_node->move_list[best_idx]);
