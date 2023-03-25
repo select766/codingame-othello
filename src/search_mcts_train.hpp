@@ -50,7 +50,6 @@ public:
     class EvalResult
     {
     public:
-        shared_ptr<SearchPartialResultEvalRequest> request;
         float value_logit;
         float policy_logits[BOARD_AREA];
     };
@@ -74,6 +73,7 @@ private:
     random_device seed_gen;
     default_random_engine random_engine;
     gamma_distribution<float> gamma_distribution_for_dirichret;
+    shared_ptr<SearchPartialResultEvalRequest> prev_request;
 
 public:
 
@@ -131,6 +131,8 @@ public:
             }
         } while (!result);
 
+        prev_request = dynamic_pointer_cast<SearchPartialResultEvalRequest>(result);
+
         return result;
     }
 
@@ -183,7 +185,6 @@ private:
     shared_ptr<SearchPartialResult> assign_root_eval(const EvalResult *eval_result)
     {
         assert(eval_result);
-        auto prev_request = dynamic_pointer_cast<SearchPartialResultEvalRequest>(eval_result->request);
         assert(prev_request);
         auto leaf = prev_request->leaf;
         assign_eval_result_to_leaf(leaf, eval_result);
@@ -200,17 +201,18 @@ private:
         }
 
         next_task = NextTask::SEARCH_TREE;
+        prev_request = nullptr;
         return nullptr;
     }
 
     shared_ptr<SearchPartialResult> assign_leaf_eval(const EvalResult *eval_result)
     {
         assert(eval_result);
-        auto prev_request = dynamic_pointer_cast<SearchPartialResultEvalRequest>(eval_result->request);
         assert(prev_request);
         auto leaf = prev_request->leaf;
         assign_eval_result_to_leaf(leaf, eval_result);
         backup_path(prev_request->tree_path, leaf->score);
+        prev_request = nullptr;
         next_task = NextTask::SEARCH_TREE;
         return nullptr;
     }

@@ -19,24 +19,82 @@ struct MoveRecord
 class PlayoutBuffer
 {
 public:
-    float *board_repr;    // Playoutが評価を求めたい盤面表現をこのアドレスに書き込む
+    float *board_repr;          // Playoutが評価を求めたい盤面表現をこのアドレスに書き込む
     const float *policy_logits; // 前回評価を求められた局面の評価結果をPlayoutに渡す
     const float *value_logit;   // 前回評価を求められた局面の評価結果をPlayoutに渡す
+};
+
+// DNN評価結果のキャッシュ機構。初手付近など並行するプレイ間での共有や、局面を進めた後に同じノードを評価する場面で高速化する。
+class EvalCache
+{
+    class CacheEntry
+    {
+    public:
+        Board board;
+        SearchMCTSTrain::EvalResult eval_result;
+
+        CacheEntry()
+        {
+            // 空のボードは、実現する盤面とマッチしない
+            memset(&board, 0, sizeof(board));
+        }
+    };
+
+    size_t size;
+    size_t hash_mask;
+    vector<CacheEntry> cache;
+    int cache_hit, total_get;
+
+public:
+    EvalCache(size_t size) : size(size), hash_mask(size - 1), cache(size), cache_hit(0), total_get(0)
+    {
+        if (size & (size - 1))
+        {
+            throw runtime_error("EvalCache: size must be power of 2");
+        }
+    }
+
+    SearchMCTSTrain::EvalResult *get(const Board &board)
+    {
+        total_get++;
+        // if (total_get % 1024 == 0)
+        // {
+        //     cerr << "cache hit rate: " << (cache_hit * 100 / total_get) << endl;
+        // }
+        size_t key = board.hash() & hash_mask;
+        CacheEntry *entry = &cache[key];
+        if (entry->board == board)
+        {
+            cache_hit++;
+            return &entry->eval_result;
+        }
+        return nullptr;
+    }
+
+    void put(const Board &board, const SearchMCTSTrain::EvalResult *eval_result)
+    {
+        size_t key = board.hash() & hash_mask;
+        CacheEntry *entry = &cache[key];
+        entry->board = board;
+        memcpy(&entry->eval_result, eval_result, sizeof(*eval_result));
+    }
 };
 
 class SinglePlayout
 {
     Board board;
+    Board evaluating_board;
+    bool has_evaluating_board;
     FeatureExtractor extractor;
     vector<MoveRecord> records;
-    shared_ptr<SearchMCTSTrain::SearchPartialResultEvalRequest> last_eval_request;
+    shared_ptr<EvalCache> eval_cache;
     int _games_completed;
 
 public:
     shared_ptr<ofstream> fout;
     SearchMCTSTrain engine;
 
-    SinglePlayout(shared_ptr<ofstream> fout, SearchMCTSTrain::SearchMCTSConfig mcts_config) : fout(fout), engine(mcts_config), extractor(), _games_completed(0)
+    SinglePlayout(shared_ptr<ofstream> fout, SearchMCTSTrain::SearchMCTSConfig mcts_config, shared_ptr<EvalCache> eval_cache) : fout(fout), engine(mcts_config), extractor(), _games_completed(0), eval_cache(eval_cache), has_evaluating_board(false)
     {
         board.set_hirate();
         engine.board.set(board);
@@ -58,7 +116,11 @@ public:
         {
             memcpy(&eval_result.value_logit, playout_buffer.value_logit, sizeof(eval_result.value_logit));
         }
-        eval_result.request = last_eval_request;
+        if (has_evaluating_board)
+        {
+            eval_cache->put(evaluating_board, &eval_result);
+            has_evaluating_board = false;
+        }
         while (true)
         {
             auto search_partial_result = engine.search_partial(&eval_result);
@@ -72,10 +134,20 @@ public:
             if (result_eval)
             {
                 // 評価が必要
-                DNNInputFeature feat = extractor.extract(result_eval->board);
-                memcpy(playout_buffer.board_repr, feat.board_repr, sizeof(feat.board_repr));
-                last_eval_request = result_eval;
-                return;
+                auto cached_result = eval_cache->get(result_eval->board);
+                if (cached_result)
+                {
+                    memcpy(eval_result.policy_logits, cached_result->policy_logits, sizeof(eval_result.policy_logits));
+                    memcpy(&eval_result.value_logit, &cached_result->value_logit, sizeof(eval_result.value_logit));
+                }
+                else
+                {
+                    DNNInputFeature feat = extractor.extract(result_eval->board);
+                    memcpy(playout_buffer.board_repr, feat.board_repr, sizeof(feat.board_repr));
+                    evaluating_board = result_eval->board;
+                    has_evaluating_board = true;
+                    return;
+                }
             }
         }
     }
@@ -104,14 +176,14 @@ private:
     void flush_record_with_game_result()
     {
         // gameoverの時に呼び出す。recordsにゲームの結果を書きこんだうえでファイルに出力する。
-        
+
         int8_t stone_diff_black = static_cast<int8_t>(board.piece_num(BLACK) - board.piece_num(WHITE));
         for (auto &record : records)
         {
             record.game_result = record.turn == BLACK ? stone_diff_black : -stone_diff_black;
         }
-        
-        fout->write((char*)&records[0], records.size() * sizeof(MoveRecord));
+
+        fout->write((char *)&records[0], records.size() * sizeof(MoveRecord));
         records.clear();
         _games_completed++;
     }
@@ -130,7 +202,7 @@ private:
                 engine.newgame();
                 engine.board.set(board);
             }
-            
+
             vector<Move> move_list;
             board.legal_moves(move_list);
             if (move_list.empty())
@@ -157,12 +229,14 @@ class ParallelPlayout
 public:
     shared_ptr<ofstream> fout;
     vector<unique_ptr<SinglePlayout>> single_playouts;
+    shared_ptr<EvalCache> eval_cache;
     int parallel;
 
-    ParallelPlayout(shared_ptr<ofstream> fout, SearchMCTSTrain::SearchMCTSConfig mcts_config, int parallel) : fout(fout), parallel(parallel) {
+    ParallelPlayout(shared_ptr<ofstream> fout, SearchMCTSTrain::SearchMCTSConfig mcts_config, int parallel) : fout(fout), parallel(parallel), eval_cache(new EvalCache(1024 * 1024))
+    {
         for (int i = 0; i < parallel; i++)
         {
-            single_playouts.push_back(unique_ptr<SinglePlayout>(new SinglePlayout(fout, mcts_config)));
+            single_playouts.push_back(unique_ptr<SinglePlayout>(new SinglePlayout(fout, mcts_config, eval_cache)));
         }
     }
 
@@ -176,14 +250,14 @@ public:
         return sum;
     }
 
-    void proceed(float* batch_board_repr, const float* batch_policy_logits, const float* batch_value_logit)
+    void proceed(float *batch_board_repr, const float *batch_policy_logits, const float *batch_value_logit)
     {
         for (int i = 0; i < parallel; i++)
         {
             PlayoutBuffer pb;
-            pb.board_repr = (float*)((char*)batch_board_repr + sizeof(DNNInputFeature::board_repr) * i);
-            pb.policy_logits = (float*)((char*)batch_policy_logits + sizeof(SearchMCTSTrain::EvalResult::policy_logits) * i);
-            pb.value_logit = (float*)((char*)batch_value_logit + sizeof(SearchMCTSTrain::EvalResult::value_logit) * i);
+            pb.board_repr = (float *)((char *)batch_board_repr + sizeof(DNNInputFeature::board_repr) * i);
+            pb.policy_logits = (float *)((char *)batch_policy_logits + sizeof(SearchMCTSTrain::EvalResult::policy_logits) * i);
+            pb.value_logit = (float *)((char *)batch_value_logit + sizeof(SearchMCTSTrain::EvalResult::value_logit) * i);
             single_playouts[i]->proceed(pb);
         }
     }
@@ -194,7 +268,7 @@ shared_ptr<ParallelPlayout> parallel_playout;
 int init_playout(const string &record_path, int parallel, int playout_limit)
 {
     shared_ptr<ofstream> fout(new ofstream());
-    fout->open(record_path, ios::out|ios::binary|ios::trunc);
+    fout->open(record_path, ios::out | ios::binary | ios::trunc);
 
     if (!fout)
     {

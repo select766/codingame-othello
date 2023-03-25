@@ -55,7 +55,6 @@ class UndoInfo
 {
 public:
     BoardPlane planes[N_PLAYER];
-    Color turn; // BLACK / WHITE
     int pass_count;
 };
 
@@ -82,6 +81,14 @@ inline Move move_from_str(const string &move_str)
     return (move_str[0] - 'a') + (move_str[1] - '1') * BOARD_SIZE;
 }
 
+inline constexpr uint64_t splitmix64(uint64_t z)
+{
+    // https://xorshift.di.unimi.it/splitmix64.c
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+	z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+	return z ^ (z >> 31);
+}
+
 class Board
 {
     BoardPlane planes[N_PLAYER];
@@ -92,6 +99,18 @@ public:
     Board() {
         set_hirate();
     };
+
+    bool operator==(const Board& other) const {
+        return planes[0] == other.planes[0] && planes[1] == other.planes[1] && _turn == other._turn && _pass_count == other._pass_count;
+    }
+
+    bool operator!=(const Board& other) const {
+        return !(*this == other);
+    }
+
+    uint64_t hash() const {
+        return (splitmix64(planes[0]) ^ splitmix64(planes[1])) + _turn + (_pass_count << 1);
+    }
 
     void set(const Board &other)
     {
@@ -223,7 +242,6 @@ public:
     {
         undo_info.planes[0] = planes[0];
         undo_info.planes[1] = planes[1];
-        undo_info.turn = _turn;
         undo_info.pass_count = _pass_count;
         if (!move_is_pass(move))
         {
@@ -244,8 +262,8 @@ public:
     {
         planes[0] = undo_info.planes[0];
         planes[1] = undo_info.planes[1];
-        _turn = undo_info.turn;
         _pass_count = undo_info.pass_count;
+        _turn = 1 - _turn;
     }
 
     // 合法手を列挙する。
