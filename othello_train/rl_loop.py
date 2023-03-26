@@ -48,7 +48,7 @@ def main():
             playout_args.extend(["--playout_limit", args.playout_limit])
         check_call(playout_args, records_dir / f"records_{epoch}.bin")
         train_args = ["python", "-m", "othello_train.rl_train_v1", f"{work_dir}/cp_{epoch}/cp", f"{work_dir}/cp_{epoch+1}/cp",
-                   f"{records_dir}/records_{epoch}.bin", "--epoch", f"{args.train_epoch}"] + model_args
+                   f"{records_dir}/records_{epoch}.bin", "--epoch", f"{args.train_epoch}", "--early_stop"] + model_args
         check_call(train_args, work_dir / f"cp_{epoch+1}")
         check_call(["python", "-m", "othello_train.checkpoint_to_savedmodel_v1",
                    f"{work_dir}/cp_{epoch+1}/cp", f"{work_dir}/sm_{epoch+1}"] + model_args, work_dir / f"sm_{epoch+1}")
