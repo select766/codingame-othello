@@ -7,6 +7,7 @@
 #include <sstream>
 #include <chrono>
 #include <memory>
+#include <array>
 #include "base64.hpp"
 #include "board.hpp"
 #include "dnn_evaluator_embed.hpp"

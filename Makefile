@@ -24,9 +24,13 @@ $(OUTDIR)/codingame: $(OUTDIR)/codingame.o
 	mkdir -p $(@D)
 	g++ -o $@ $^ $(CFLAGS)
 
-$(OUTDIR)/codingame.py: $(OUTDIR)/codingame.cpp
+$(OUTDIR)/codingame.bin: $(OUTDIR)/codingame.cpp
+# サーバのglibcより新しい環境でビルドしてしまうと動作しないため、バージョンを指定したdockerイメージ内のg++を利用
+	docker run --rm --mount type=bind,source=$(shell pwd)/build,target=/build gcc:12.2.0-bullseye sh -c 'g++ /build/codingame.cpp -o /build/codingame.bin --std=c++17 -O3 && strip /build/codingame.bin'
+
+$(OUTDIR)/codingame.py: $(OUTDIR)/codingame.bin
 	mkdir -p $(@D)
-	python scripts/embed_gcc.py $< $@
+	python scripts/pack_executable_to_py.py $< $@
 
 $(OUTDIR)/interactive: $(SRCDIR)/main_interactive.o
 	mkdir -p $(@D)
