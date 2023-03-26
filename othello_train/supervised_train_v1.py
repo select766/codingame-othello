@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 from othello_train import board
-from othello_train.model_v1 import OthelloModelV1
+from othello_train.model_v1 import build_model
 from othello_train.feat_v1 import INPUT_SHAPE, encode_record
 
 
@@ -26,7 +26,7 @@ def main():
         (train_feats, train_moves, train_game_results)).batch(256)
 
     test_ds = tf.data.Dataset.from_tensor_slices((val_feats, val_moves, val_game_results)).batch(256)
-    model = OthelloModelV1()
+    model = build_model("OthelloModelResNetV1", None)
     policy_loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     value_loss_object = tf.keras.losses.MeanSquaredError()
 

@@ -1,11 +1,12 @@
 # 強化学習用の学習機
 
 import argparse
+from tqdm import tqdm
 import tensorflow as tf
 import numpy as np
 
 from othello_train import board
-from othello_train.model_v1 import OthelloModelV1
+from othello_train.model_v1 import build_model
 from othello_train.feat_v1 import INPUT_SHAPE, encode_record
 
 
@@ -42,7 +43,7 @@ class OthelloRecordSequence(tf.keras.utils.Sequence):
 
 
 def run_train(args):
-    model = OthelloModelV1()
+    model = build_model(args.model, args.model_kwargs)
     model.load_weights(args.src_checkpoint)
 
     train_dataset = OthelloRecordSequence(args.records, args.batch_size)
@@ -82,7 +83,7 @@ def run_train(args):
         train_value_loss.reset_states()
         train_policy_accuracy.reset_states()
 
-        for images, moves, game_results in train_dataset:
+        for images, moves, game_results in tqdm(train_dataset):
             train_step(images, moves, game_results)
 
         print(
@@ -101,6 +102,8 @@ def main():
     parser.add_argument("src_checkpoint")
     parser.add_argument("dst_checkpoint")
     parser.add_argument("records")
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--model_kwargs")
     parser.add_argument("--epoch", type=int, default=1)
     parser.add_argument("--device", default="/GPU:0")
     parser.add_argument("--batch_size", type=int, default=256)
