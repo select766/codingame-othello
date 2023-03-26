@@ -9,7 +9,7 @@ PYTHON_EXTENSION_SUFFIX = $(shell python3-config --extension-suffix)
 
 .PHONY: all clean
 
-all: $(OUTDIR)/codingame $(OUTDIR)/interactive $(OUTDIR)/generate_training_data_1 $(OUTDIR)/legal_move_test $(OUTDIR)/make_legal_move_test_data $(OUTDIR)/print_tree $(OUTDIR)/random_match $(OUTDIR)/test_dnn_evaluator othello_train/othello_train_cpp$(PYTHON_EXTENSION_SUFFIX)
+all: $(OUTDIR)/codingame $(OUTDIR)/codingame.py $(OUTDIR)/interactive $(OUTDIR)/generate_training_data_1 $(OUTDIR)/legal_move_test $(OUTDIR)/make_legal_move_test_data $(OUTDIR)/print_tree $(OUTDIR)/random_match $(OUTDIR)/test_dnn_evaluator othello_train/othello_train_cpp$(PYTHON_EXTENSION_SUFFIX)
 clean:
 	rm -rf $(OUTDIR)/* $(SRCDIR)/*.o
 
@@ -18,11 +18,15 @@ clean:
 
 $(OUTDIR)/codingame.cpp: src/main_codingame.cpp $(HEADERS)
 	mkdir -p $(@D)
-	python concat_source.py -o $@ src main_codingame.cpp --exclude dnn_evaluator_socket.hpp search_alpha_beta_constant_depth.hpp search_alpha_beta_iterative.hpp search_policy.hpp  search_random.hpp search_mcts_train.hpp
+	python scripts/concat_source.py -o $@ src main_codingame.cpp --exclude dnn_evaluator_socket.hpp search_alpha_beta_constant_depth.hpp search_alpha_beta_iterative.hpp search_policy.hpp  search_random.hpp search_mcts_train.hpp
 
 $(OUTDIR)/codingame: $(OUTDIR)/codingame.o
 	mkdir -p $(@D)
 	g++ -o $@ $^ $(CFLAGS)
+
+$(OUTDIR)/codingame.py: $(OUTDIR)/codingame.cpp
+	mkdir -p $(@D)
+	python scripts/embed_gcc.py $< $@
 
 $(OUTDIR)/interactive: $(SRCDIR)/main_interactive.o
 	mkdir -p $(@D)

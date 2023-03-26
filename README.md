@@ -9,7 +9,7 @@ CodingameのOthello(オセロ)タスクのAI
 make
 ```
 
-`build/codingame.cpp`が成果物。
+`build/codingame.py`が成果物。(`build/codingame.cpp`をサーバで最適化ビルドするようパッケージしたもの)
 
 # 合法手チェック
 
