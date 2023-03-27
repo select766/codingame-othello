@@ -10,8 +10,8 @@ g++のオプションに-O1を与える。
 
 C++として提出する場合はC++ソース先頭に以下の内容を書くことで少しスピードアップしていた。
 しかしこれがあるとビルド制限時間を超えるため外している。
-#pragma GCC optimize("O3,unroll-loops")
-#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
+#pragma GCC optimize("O3,unroll-loops,inline")
+#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt,fma")
 """
 
 import argparse
