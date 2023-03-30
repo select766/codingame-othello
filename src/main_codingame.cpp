@@ -1,5 +1,5 @@
 #include "common.hpp"
-
+#include "dnn_evaluator_tvm.hpp"
 
 
 int main()
@@ -16,9 +16,9 @@ int main()
         return 1;
     }
 
-    shared_ptr<DNNEvaluator> evaluator(new DNNEvaluatorEmbed());
+    shared_ptr<DNNEvaluator> evaluator(new DNNEvaluatorTVM());
     SearchMCTS::SearchMCTSConfig mcts_config;
-    mcts_config.playout_limit = 512;
+    mcts_config.playout_limit = 4096;
     mcts_config.table_size = mcts_config.playout_limit * 60 * 2;
     mcts_config.c_puct = 1.0;
     mcts_config.time_limit_ms = 120;
@@ -34,6 +34,10 @@ int main()
             string line; // rows from top to bottom (viewer perspective).
             cin >> line;
             cin.ignore();
+            if (cin.eof())
+            {
+                return 0;
+            }
             position_lines.push_back(line);
         }
         ai->board.set_position_codingame(position_lines, my_color);

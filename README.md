@@ -1,6 +1,19 @@
 # codingame-othello
 CodingameのOthello(オセロ)タスクのAI
 
+# (暫定)codingame提出用ファイル作成
+
+TVM導入途中。Makefileで対応できてない。
+
+学習済みsavedmodelが `model/debug_ch8_d7/sm_26` にある想定
+
+```
+cd tvm
+./build_model.sh
+```
+
+`build/codingame.py`が成果物。
+
 # codingame提出用ファイル作成
 
 複数のソースファイルに分かれているが、単一のファイルにまとめる必要がある。

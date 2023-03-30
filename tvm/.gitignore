@@ -1,0 +1,6 @@
+*
+!.gitignore
+!build_model.sh
+!main.cc
+!Makefile.template
+!tf2tflite.py
