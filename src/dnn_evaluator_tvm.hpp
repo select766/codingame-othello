@@ -8,7 +8,6 @@
 #include <time.h>
 #include <tvm/runtime/c_runtime_api.h>
 #include <tvm/runtime/crt/logging.h>
-#include <tvm/runtime/crt/microtvm_rpc_server.h>
 #include <tvm/runtime/crt/page_allocator.h>
 #include <unistd.h>
 
@@ -114,7 +113,7 @@ void TVMLogf(const char *format, ...)
 class DNNEvaluatorTVM : public DNNEvaluator
 {
     FeatureExtractor extractor;
-    uint8_t memory[MEMORY_SIZE_BYTES];
+    uint8_t memory[16777216];
 
     DLTensor input_tensor, output_policy_tensor, output_value_tensor;
     TVMArrayHandle input_handle, output_policy_handle, output_value_handle;
@@ -160,6 +159,7 @@ public:
 
     ~DNNEvaluatorTVM()
     {
+        // TVMArrayFreeは、DLTensorへのポインタを、サイズの違うTVMNDArrayへのポインタとみなして誤操作するバグがあるため行わない
     }
 
     DNNEvaluatorResult evaluate(const Board &board)

@@ -16,9 +16,8 @@
 # under the License.
 
 INCLUDES ?= -isystem crt/include -Icrt_config
-MEMORY_SIZE_BYTES := 16777216
 CFLAGS ?= -Ofast -march=haswell
-CXXFLAGS ?= -std=c++17 -Ofast -march=haswell -DMEMORY_SIZE_BYTES=$(MEMORY_SIZE_BYTES)
+CXXFLAGS ?= -std=c++17 -Ofast -march=haswell
 LDFLAGS ?= -Werror -Wall
 
 # Codegen produces spurious lines like: int32_t arg2_code = ((int32_t*)arg_type_ids)[(2)];
