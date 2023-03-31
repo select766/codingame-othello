@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script>
+        function toHex(v) {
+            return '0x' + (('0000' + v.toString(16).toUpperCase()).substr(-4));
+        }
+        function run_check() {
+            const text = document.getElementById('ta').value;
+            let last_code_unit = -1;
+            let ok_bottom = 0;
+            let result = "";
+            for (let i = 0; i < text.length; i++) {
+                // UTF-16 0~0xFFFF
+                const code_unit = text.charCodeAt(i);
+                if (code_unit == last_code_unit + 1) {
+                    // ok
+                }
+                else {
+                    // char is skipped
+                    if (last_code_unit >= 0) {
+                        result += `OK: ${toHex(ok_bottom)}-${toHex(last_code_unit)}\n`;
+                    }
+                    result += `Skip: ${toHex(last_code_unit + 1)}-${toHex(code_unit - 1)}\n`;
+                    ok_bottom = code_unit;
+                }
+                last_code_unit = code_unit;
+            }
+
+            const upper_bound = 0xFFFF;
+            result += `OK: ${toHex(ok_bottom)}-${toHex(last_code_unit)}\n`;
+            if (last_code_unit + 1 <= upper_bound) {
+                result += `Skip: ${toHex(last_code_unit + 1)}-${toHex(upper_bound)}\n`;
+            }
+
+            document.getElementById('result').innerText = result;
+        }
+    </script>
+</head>
+
+<body>
+    <button type="button" onclick="run_check();">Run check</button>
+    <textarea id="ta"></textarea>
+    <pre id="result"></pre>
+</body>
+
+</html>
