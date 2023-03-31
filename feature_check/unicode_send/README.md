@@ -46,3 +46,36 @@ OK: 0xE000-0xFFFF
 
 63483文字の集合の情報量は、`log2(63483)=15.954082686406467`。
 `efficiency.py` での計算により、base64のようにバイト列を文字列にパックする場合、174文字に347バイトを詰め込み、99.2%の効率となることがわかる。
+
+## Line Separator (U+2028), Paragraph Separator (U+2029)の削除
+
+これらが含まれていると、ファイルを開いたときにVSCodeが警告を表示する。文字集合が63481文字になっても、ぎりぎりで174文字に347バイトを詰め込むことができるので削除する。
+
+```
+remove_line_separator.py
+```
+
+結果は `python_ok_chars_no_line_separator_utf8.txt` に出力される。
+
+## 変換テーブルの作成
+
+```
+python make_decode_offset_table.py
+```
+
+を実行し、その結果
+
+```
+Encode offset:
+{55289: 2055, 8227: 7, 88: 5, 31: 4, 11: 3, 9: 2, 0: 1}
+Decode offset:
+{9: 1, 12: 2, 33: 3, 91: 4, 8231: 5, 55295: 7, 65536: 2055}
+```
+
+を以下のファイルに反映する。
+
+```
+scripts/base63481/decode.py
+scripts/base63481/encode.py
+scripts/pack_executable_to_py.py
+```

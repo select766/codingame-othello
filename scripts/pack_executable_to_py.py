@@ -7,7 +7,7 @@ codingameサーバ上で実行可能なバイナリを、提出可能なpython�
 
 import argparse
 import lzma
-from base63483.encode import encode
+from base63481.encode import encode
 
 # 先頭にcodingの行がないと、なぜか以下のエラーが生じる
 # SyntaxError: Non-UTF-8 code starting with '\xe3' in file
@@ -22,10 +22,10 @@ import base64
 import subprocess
 import os
 
-CHARSET_SIZE = 63483
+CHARSET_SIZE = 63481
 UNIT_CHARS = 174
 UNIT_BYTES = 347
-OFFSET_TABLE = {9: 1, 12: 2, 33: 3, 91: 4, 55295: 5, 65536: 2053}
+OFFSET_TABLE = {9: 1, 12: 2, 33: 3, 91: 4, 8231: 5, 55295: 7, 65536: 2055}
 
 def decode_chunk(chunk_text):
     bigint = 0

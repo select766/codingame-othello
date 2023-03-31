@@ -40,7 +40,7 @@ def make_decode_offset_table(charset):
 
 
 def main():
-    with open("python_ok_chars_utf8.txt", "r", encoding="utf-8") as f:
+    with open("python_ok_chars_no_line_separator_utf8.txt", "r", encoding="utf-8") as f:
         charset = f.read()
     print("Encode offset:")
     print(make_encode_offset_table(charset))
