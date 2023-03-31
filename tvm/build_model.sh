@@ -1,13 +1,13 @@
 #!/bin/bash
 
 set -ex
-python tf2tflite.py ../model/debug_ch8_d7/sm_26 debug_ch8_d7_epoch26.tflite
-tvmc compile --target="c -keys=cpu -model=host" --input-shapes "data:[1,8,8,3]" --output debug_ch8_d7_epoch26_crt.tar --runtime crt --runtime-crt-system-lib 1 --executor aot --output-format mlf --pass-config tir.disable_vectorize=1 debug_ch8_d7_epoch26.tflite
+python tf2tflite.py ../model/debug_ch16_mate1ply/sm_113 debug_debug_ch16_mate1ply_epoch113.tflite
+tvmc compile --target="c -keys=cpu -model=host" --input-shapes "data:[1,8,8,3]" --output debug_debug_ch16_mate1ply_epoch113_crt.tar --runtime crt --runtime-crt-system-lib 1 --executor aot --output-format mlf --pass-config tir.disable_vectorize=1 debug_debug_ch16_mate1ply_epoch113.tflite
 mkdir crtbuild
 cd crtbuild
 mkdir model
 cd model/ 
-tar xf ../../debug_ch8_d7_epoch26_crt.tar
+tar xf ../../debug_debug_ch16_mate1ply_epoch113_crt.tar
 cd ..
 mkdir crt crt_config src
 cp -r model/runtime/{include,Makefile,src} crt/
