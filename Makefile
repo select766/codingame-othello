@@ -1,4 +1,4 @@
-CFLAGS = -std=c++17 -O3
+CFLAGS = -std=c++17 -Ofast
 
 SRCDIR = src
 OUTDIR = build
@@ -9,24 +9,20 @@ PYTHON_EXTENSION_SUFFIX = $(shell python3-config --extension-suffix)
 
 .PHONY: all clean
 
-all: $(OUTDIR)/codingame $(OUTDIR)/codingame.py $(OUTDIR)/interactive $(OUTDIR)/generate_training_data_1 $(OUTDIR)/legal_move_test $(OUTDIR)/make_legal_move_test_data $(OUTDIR)/print_tree $(OUTDIR)/random_match $(OUTDIR)/test_dnn_evaluator othello_train/othello_train_cpp$(PYTHON_EXTENSION_SUFFIX)
+all: $(OUTDIR)/codingame.py $(OUTDIR)/interactive $(OUTDIR)/generate_training_data_1 $(OUTDIR)/legal_move_test $(OUTDIR)/make_legal_move_test_data $(OUTDIR)/print_tree $(OUTDIR)/random_match $(OUTDIR)/test_dnn_evaluator othello_train/othello_train_cpp$(PYTHON_EXTENSION_SUFFIX)
 clean:
 	rm -rf $(OUTDIR)/* $(SRCDIR)/*.o
 
 %.o: %.cpp $(HEADERS)
 	g++ -c $(CFLAGS) -o $@ $<
 
-$(OUTDIR)/codingame.cpp: src/main_codingame.cpp $(HEADERS)
+build/model.a: model/savedmodel/saved_model.pb
 	mkdir -p $(@D)
-	python scripts/concat_source.py -o $@ src main_codingame.cpp --exclude dnn_evaluator_socket.hpp search_alpha_beta_constant_depth.hpp search_alpha_beta_iterative.hpp search_policy.hpp  search_random.hpp search_mcts_train.hpp
+	./tvm/build_model.sh "model/savedmodel" "$@"
 
-$(OUTDIR)/codingame: $(OUTDIR)/codingame.o
-	mkdir -p $(@D)
-	g++ -o $@ $^ $(CFLAGS)
-
-$(OUTDIR)/codingame.bin: $(OUTDIR)/codingame.cpp
+$(OUTDIR)/codingame.bin: $(SRCDIR)/main_codingame.cpp $(HEADERS) build/model.a
 # サーバのglibcより新しい環境でビルドしてしまうと動作しないため、バージョンを指定したdockerイメージ内のg++を利用
-	docker run --rm --mount type=bind,source=$(shell pwd)/build,target=/build gcc:12.2.0-bullseye sh -c 'g++ /build/codingame.cpp -o /build/codingame.bin --std=c++17 -O3 && strip /build/codingame.bin'
+	docker run --rm --mount type=bind,source=$(shell pwd),target=/build gcc:12.2.0-bullseye sh -c 'g++ /build/src/main_codingame.cpp /build/build/model.a -o /build/build/codingame.bin -I/build/tvm/include --std=c++17 -Ofast && strip /build/build/codingame.bin'
 
 $(OUTDIR)/codingame.py: $(OUTDIR)/codingame.bin
 	mkdir -p $(@D)

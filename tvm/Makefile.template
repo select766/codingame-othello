@@ -16,6 +16,7 @@
 # under the License.
 
 INCLUDES ?= -isystem crt/include -Icrt_config
+# march for codingame server
 CFLAGS ?= -Ofast -march=haswell
 CXXFLAGS ?= -std=c++17 -Ofast -march=haswell
 LDFLAGS ?= -Werror -Wall
@@ -68,19 +69,14 @@ MODEL_LIBS = \
 	$(patsubst model/codegen/host/src/%.c, $(BUILD_DIR)/model/codegen/host/src/%.o, $(wildcard model/codegen/host/src/*.c)) \
 	$(wildcard model/codegen/host/lib/*.o)
 
-# Compile src/ files
-build/%.o: src/%.cc
+# make model static library instead of building executable
+# addlib for .a files, addmod for .o files
+# https://pyopyopyo.hatenablog.com/entry/2019/11/15/153636
+build/model.a: ${MODEL_LIBS} ${CRT_LIBS}
 	${QUIET}mkdir -p $(dir $@)
-	${QUIET}$(CXX) $(INCLUDES) $(CXXFLAGS) -c -o "$@" "$<"
+	${QUIET}echo "create $@\n" $(addprefix addlib , $(addsuffix \\n, ${CRT_LIBS})) $(addprefix addmod , $(addsuffix \\n, ${MODEL_LIBS})) "save" | ar -M
 
-SRCS = $(wildcard src/*.cc)
-OBJS = $(patsubst src/%.cc,build/%.o,$(SRCS))
-
-build/main: ${OBJS} ${MODEL_LIBS} ${CRT_LIBS}
-	${QUIET}mkdir -p $(dir $@)
-	${QUIET}$(CXX) $(LDFLAGS) -o "$@" $^
-
-all: build/main
+all: build/model.a
 .PHONY = all
 
 .DEFAULT_GOAL = all

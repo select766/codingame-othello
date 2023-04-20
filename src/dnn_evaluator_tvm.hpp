@@ -15,7 +15,6 @@
 #include <iostream>
 #include <cstring>
 
-#include <crt_config.h>
 #include <tvm/runtime/crt/aot_executor_module.h>
 
 extern "C"

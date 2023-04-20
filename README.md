@@ -1,28 +1,17 @@
 # codingame-othello
 CodingameのOthello(オセロ)タスクのAI
 
-# (暫定)codingame提出用ファイル作成
-
-TVM導入途中。Makefileで対応できてない。
-
-学習済みsavedmodelが `model/debug_ch8_d7/sm_26` にある想定
-
-```
-cd tvm
-./build_model.sh
-```
-
-`build/codingame.py`が成果物。
-
 # codingame提出用ファイル作成
 
-複数のソースファイルに分かれているが、単一のファイルにまとめる必要がある。
+学習済みsavedmodelが `model/debug_ch8_d7/sm_26` にある想定。
+モデルの推論コードを、TVMを用いて重みを含め1つの`model.a`ファイルにまとめ、それと探索部をリンクする。
 
 ```
+ln -sf $(pwd)/model/debug_ch8_d7/sm_26 model/savedmodel
 make
 ```
 
-`build/codingame.py`が成果物。(`build/codingame.cpp`をビルドし、実行バイナリを文字列にパックしたもの)
+`build/codingame.py`が成果物。
 
 # 合法手チェック
 
@@ -102,12 +91,9 @@ python -m othello_train.eval_server_v1 model/debug/sm_9
 
 対戦相手は `main_random_match.cpp` 内にハードコードされている
 
-## モデルをソースコードに埋め込み
+## 本番対局用
 
-codingame提出のため、Tensorflowを用いずC++ソースだけでモデルを実行する必要がある。DNNの重みをソースファイル上の定数として定義する。
 
 ```
-python -m othello_train.embed_weight model/debug/sm_10 src/_dnn_weight.hpp
+make
 ```
-
-この状態で `make` すれば `/build/codingame.cpp` にモデルが埋め込まれた状態になる。
