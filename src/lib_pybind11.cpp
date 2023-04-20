@@ -1,6 +1,7 @@
 #include "common.hpp"
 #include <fstream>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 
 namespace py = pybind11;
@@ -317,4 +318,38 @@ PYBIND11_MODULE(othello_train_cpp, m)
     m.def("proceed_playout", &proceed_playout, "Proceeds playout");
     m.def("end_playout", &end_playout, "Ends playout (close output file)");
     m.def("games_completed", &games_completed, "Gets the number of completed games");
+
+    m.attr("BOARD_SIZE") = py::int_(BOARD_SIZE);
+    m.attr("BOARD_AREA") = py::int_(BOARD_AREA);
+    m.attr("MOVE_PASS") = py::int_(MOVE_PASS);
+    m.attr("N_PLAYER") = py::int_(N_PLAYER);
+    m.attr("BLACK") = py::int_(BLACK);
+    m.attr("WHITE") = py::int_(WHITE);
+    m.attr("DRAW") = py::int_(DRAW);
+
+    m.def("move_is_pass", move_is_pass);
+    m.def("move_to_str", move_to_str);
+    m.def("move_from_str", move_from_str);
+
+    py::class_<UndoInfo>(m, "UndoInfo");
+    py::class_<Board>(m, "Board")
+        .def(py::init<>())
+        .def("turn", &Board::turn)
+        .def("plane", &Board::plane)
+        .def("set_hirate", &Board::set_hirate)
+        .def("get_position_codingame", &Board::get_position_codingame)
+        .def("set_position_codingame", &Board::set_position_codingame)
+        .def("get_position_string", &Board::get_position_string)
+        .def("get_position_string_with_turn", &Board::get_position_string_with_turn)
+        .def("set_position_string", &Board::set_position_string)
+        .def("do_move", &Board::do_move_py)
+        .def("undo_move", &Board::undo_move)
+        .def("legal_moves", &Board::legal_moves_py)
+        .def("is_gameover", &Board::is_gameover)
+        .def("piece_sum", &Board::piece_sum)
+        .def("piece_num", static_cast<int (Board::*)() const>(&Board::piece_num))
+        .def("piece_num", static_cast<int (Board::*)(int) const>(&Board::piece_num))
+        .def("count_stone_diff", &Board::count_stone_diff)
+        .def("winner", &Board::winner)
+        .def("__str__", &Board::pretty_print);
 }

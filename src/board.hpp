@@ -163,6 +163,32 @@ public:
         _pass_count = 0;
     }
 
+    vector<string> get_position_codingame() const
+    {
+        vector<string> v;
+        for (int row = 0; row < BOARD_SIZE; row++)
+        {
+            string line;
+            for (int col = 0; col < BOARD_SIZE; col++)
+            {
+                BoardPlane pos = position_plane(row * BOARD_SIZE + col);
+                char c = '.';
+                if (planes[BLACK] & pos)
+                {
+                    c = '0';
+                }
+                else if (planes[WHITE] & pos)
+                {
+                    c = '1';
+                }
+                line += c;
+            }
+            v.push_back(line);
+        }
+
+        return v;
+    }
+
     // 盤面を表現する、- (なし), O (白), X (黒)を64文字並べた文字列を返す
     string get_position_string()
     {
@@ -258,6 +284,13 @@ public:
         _turn = 1 - _turn;
     }
 
+    UndoInfo do_move_py(Move move)
+    {
+        UndoInfo undo_info;
+        do_move(move, undo_info);
+        return undo_info;
+    }
+
     void undo_move(const UndoInfo &undo_info)
     {
         planes[0] = undo_info.planes[0];
@@ -285,6 +318,13 @@ public:
         {
             move_list.push_back(MOVE_PASS);
         }
+    }
+
+    vector<Move> legal_moves_py()
+    {
+        vector<Move> moves;
+        legal_moves(moves, false);
+        return moves;
     }
 
     void legal_moves_bb(BoardPlane &result) const
