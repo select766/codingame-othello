@@ -6,6 +6,7 @@ import subprocess
 import os
 from tqdm import tqdm
 import json
+from multiprocessing import Pool
 import othello_train.othello_train_cpp as otc
 
 
@@ -35,6 +36,48 @@ class Engine:
     def __del__(self) -> None:
         self.close()
 
+def run_one_game(args):
+    # エンジンに新規ゲームの開始を伝える手段がないので、ゲームごとにプロセスを起動する
+    # 同じプロセスで複数のゲームを行うと、置換表が満杯になるなどの不具合が起きる
+    black_engine = args["black_engine"]
+    engines = [Engine(args["engine1"]), Engine(args["engine2"])]
+    board = otc.Board()
+    for i, engine in enumerate(engines):
+        color = i ^ black_engine
+        engine.writeline(f"{color}")  # my_color
+        engine.writeline("8")  # board_size
+
+    current_engine = black_engine
+    move_history = []
+    while not board.is_gameover():
+        engine = engines[current_engine]
+        legal_moves_ints = board.legal_moves()
+        if len(legal_moves_ints) == 0:
+            move = otc.MOVE_PASS
+        else:
+            board_lines = board.get_position_codingame()
+            legal_moves_strs = [otc.move_to_str(
+                m) for m in legal_moves_ints]
+            for line in board_lines:
+                engine.writeline(line)
+            engine.writeline(f"{len(legal_moves_strs)}")  # action_count
+            for lms in legal_moves_strs:
+                engine.writeline(lms)
+            # wait bestmove
+            bestmove_line = engine.readline()  # c3 MSG xxx
+            bestmove = bestmove_line.split(" ")[0]
+            move = otc.move_from_str(bestmove)
+        board.do_move(move)
+        move_history.append(otc.move_to_str(move))
+        current_engine = 1 - current_engine
+    winner = board.winner()
+    record = {
+        "black_engine": black_engine,
+        "moves": move_history,
+        "winner": winner,  # BLACK/WHITE/DRAW
+    }
+    print(".", end="", file=sys.stderr, flush=True)
+    return record
 
 class MatchExe:
     def __init__(self, args) -> None:
@@ -42,14 +85,19 @@ class MatchExe:
         self.engine2 = args.engine2
         self.games = args.games
         self.out = args.out
+        self.parallel = args.parallel
 
     def run(self) -> None:
-        black_player = 0
-        records = []
-        for _ in tqdm(range(self.games)):
-            record = self._run_one_game(black_player)
-            records.append(record)
-            black_player = 1 - black_player
+        args_list = []
+        for game in range(self.games):
+            args_list.append({
+                "black_engine": game % 2,
+                "engine1": self.engine1,
+                "engine2": self.engine2,
+            })
+        with Pool(self.parallel) as p:
+            records = p.map(run_one_game, args_list)
+        print("", file=sys.stderr, flush=True)
         stats = self._calc_stats(records)
         match_result = {
             "engines": [self.engine1, self.engine2],
@@ -77,48 +125,6 @@ class MatchExe:
 BLACK - WHITE: {stats["color_win_count"][0]} - {stats["color_win_count"][2]} - {stats["color_win_count"][1]}
 """, file=sys.stderr)
 
-    def _run_one_game(self, black_engine: int):
-        # エンジンに新規ゲームの開始を伝える手段がないので、ゲームごとにプロセスを起動する
-        # 同じプロセスで複数のゲームを行うと、置換表が満杯になるなどの不具合が起きる
-        engines = [Engine(self.engine1), Engine(self.engine2)]
-        board = otc.Board()
-        for i, engine in enumerate(engines):
-            color = i ^ black_engine
-            engine.writeline(f"{color}")  # my_color
-            engine.writeline("8")  # board_size
-
-        current_engine = black_engine
-        move_history = []
-        while not board.is_gameover():
-            engine = engines[current_engine]
-            legal_moves_ints = board.legal_moves()
-            if len(legal_moves_ints) == 0:
-                move = otc.MOVE_PASS
-            else:
-                board_lines = board.get_position_codingame()
-                legal_moves_strs = [otc.move_to_str(
-                    m) for m in legal_moves_ints]
-                for line in board_lines:
-                    engine.writeline(line)
-                engine.writeline(f"{len(legal_moves_strs)}")  # action_count
-                for lms in legal_moves_strs:
-                    engine.writeline(lms)
-                # wait bestmove
-                bestmove_line = engine.readline()  # c3 MSG xxx
-                bestmove = bestmove_line.split(" ")[0]
-                move = otc.move_from_str(bestmove)
-            board.do_move(move)
-            move_history.append(otc.move_to_str(move))
-            current_engine = 1 - current_engine
-        winner = board.winner()
-        record = {
-            "black_engine": black_engine,
-            "moves": move_history,
-            "winner": winner,  # BLACK/WHITE/DRAW
-        }
-        return record
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("engine1")
@@ -126,6 +132,7 @@ def main():
     parser.add_argument("--games", type=int, default=1)
     parser.add_argument("--out", help="output json file", type=argparse.FileType('w'),
                         default=sys.stdout)
+    parser.add_argument("--parallel", type=int, default=1)
     args = parser.parse_args()
     MatchExe(args).run()
 
