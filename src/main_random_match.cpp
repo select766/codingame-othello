@@ -11,6 +11,7 @@ int main()
     mcts_config.c_puct = 1.0;
     mcts_config.time_limit_ms = 1000;
     mcts_config.mate_1ply = true;
+    mcts_config.select_move_proportional_until_move = 10;
     SearchBase *ais[] = {new SearchRandom(), new SearchMCTS(mcts_config, evaluator)};
     int player_win_count[N_PLAYER] = {0};
     int color_win_count[N_PLAYER] = {0};

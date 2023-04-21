@@ -34,6 +34,7 @@ int main(int argc, char *argv[])
     mcts_config.c_puct = 1.0;
     mcts_config.time_limit_ms = 1000;
     mcts_config.mate_1ply = true;
+    mcts_config.select_move_proportional_until_move = 10;
     SearchMCTS *ai = new SearchMCTS(mcts_config, evaluator);
     ai->newgame();
 

@@ -21,8 +21,11 @@ int main()
     mcts_config.playout_limit = 4096;
     mcts_config.table_size = mcts_config.playout_limit * 60 * 2;
     mcts_config.c_puct = 1.0;
-    mcts_config.time_limit_ms = 120;
+    // mcts_config.time_limit_ms = 120; // 本番用
+    mcts_config.time_limit_ms = 1000; // 強さ測定用
     mcts_config.mate_1ply = true;
+    // mcts_config.select_move_proportional_until_move = 0; // 本番用
+    mcts_config.select_move_proportional_until_move = 20; // 強さ測定用
     SearchBase *ai = new SearchMCTS(mcts_config, evaluator);
     ai->newgame();
     // game loop

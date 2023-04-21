@@ -4,7 +4,6 @@ import argparse
 import sys
 import subprocess
 import os
-from tqdm import tqdm
 import json
 from multiprocessing import Pool
 import othello_train.othello_train_cpp as otc
@@ -22,7 +21,10 @@ class Engine:
         self.proc.stdin.flush()
 
     def readline(self) -> str:
-        return self.proc.stdout.readline().decode("ascii")
+        """
+        末尾の改行は除去して返す
+        """
+        return self.proc.stdout.readline().decode("ascii").rstrip()
 
     def close(self) -> None:
         if self.proc is not None:

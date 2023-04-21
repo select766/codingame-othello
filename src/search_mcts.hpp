@@ -23,6 +23,9 @@ class SearchMCTS : public SearchBase
     shared_ptr<DNNEvaluator> dnn_evaluator;
     chrono::system_clock::time_point time_to_stop_search; // 探索を終了すべき時刻
 
+    random_device seed_gen;
+    default_random_engine random_engine;
+
 public:
     class SearchMCTSConfig
     {
@@ -32,6 +35,8 @@ public:
         float c_puct;
         int time_limit_ms; // 探索時間の制限[ms]。これを超えたことを検知したら探索を終了する。ルール上の制限時間より短く設定する必要がある。
         bool mate_1ply;    // 一手詰め探索を用いるか
+        // 盤上の石の数がこの値以下の時、ノードの訪問回数に比例した確率で指し手を選択する
+        int select_move_proportional_until_move;
     };
 
 private:
@@ -42,7 +47,8 @@ public:
         : dnn_evaluator(dnn_evaluator),
           config(config),
           tree_table(new TreeTable(config.table_size)),
-          root_node(nullptr)
+          root_node(nullptr),
+          random_engine(seed_gen())
     {
     }
 
@@ -309,27 +315,54 @@ private:
         float score = 0.0F;
         if (!root_node->terminal()) // terminalの場合はそもそもsearchが呼ばれないはず
         {
-            int best_n = -1;
-            float best_avg_w = -1000.0F;
             int best_idx = 0;
-            for (int i = 0; i < root_node->n_legal_moves; i++)
+            if (board.piece_sum() <= config.select_move_proportional_until_move)
             {
-                int value_n = root_node->value_n[i];
-                float avg_w = root_node->value_w[i] / static_cast<float>(value_n);
-                if (best_n < value_n)
+                // 訪問回数に比例
+                int v_sum = 0;
+                for (int i = 0; i < root_node->n_legal_moves; i++)
                 {
-                    best_n = value_n;
-                    best_avg_w = avg_w;
-                    best_idx = i;
+                    int value_n = root_node->value_n[i];
+                    v_sum += value_n;
                 }
-                else if (best_n == value_n)
+
+                uniform_int_distribution<int> dist(0, v_sum - 1);
+                int ctr = dist(random_engine);
+
+                for (int i = 0; i < root_node->n_legal_moves; i++)
                 {
-                    // 訪問回数が同じなら評価値で比較
-                    if (best_avg_w < avg_w)
+                    int value_n = root_node->value_n[i];
+                    if (ctr < value_n)
+                    {
+                        best_idx = i;
+                        break;
+                    }
+                    ctr -= value_n;
+                }
+            }
+            else
+            {
+                int best_n = -1;
+                float best_avg_w = -1000.0F;
+                for (int i = 0; i < root_node->n_legal_moves; i++)
+                {
+                    int value_n = root_node->value_n[i];
+                    float avg_w = root_node->value_w[i] / static_cast<float>(value_n);
+                    if (best_n < value_n)
                     {
                         best_n = value_n;
                         best_avg_w = avg_w;
                         best_idx = i;
+                    }
+                    else if (best_n == value_n)
+                    {
+                        // 訪問回数が同じなら評価値で比較
+                        if (best_avg_w < avg_w)
+                        {
+                            best_n = value_n;
+                            best_avg_w = avg_w;
+                            best_idx = i;
+                        }
                     }
                 }
             }
