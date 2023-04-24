@@ -54,7 +54,7 @@ def run_train(args):
     model = build_model(args.model, args.model_kwargs)
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-2), # バッチサイズ4096など大きい値を想定
         loss=[
             tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
             custom_tanh_loss
@@ -77,7 +77,7 @@ def run_train(args):
     tensorboard_callback = LRTensorBoard(
         log_dir=args.model_dir + "/log")
     early_stop_callback = tf.keras.callbacks.EarlyStopping(
-        monitor='val_loss', patience=5)
+        monitor='val_loss', patience=5, min_delta=1e-3)
 
     train_dataset = OthelloRecordSequence(np.fromfile(
         args.train_data_dir + "/records_train.bin", dtype=board.move_record_dtype), args.batch_size)
@@ -86,7 +86,8 @@ def run_train(args):
 
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor='val_loss', factor=0.1, patience=2, min_lr=1e-5)
-    model.fit(train_dataset, validation_data=val_dataset, epochs=100, callbacks=[
+    # verbose=1（デフォルト）だと、ターミナルを持っているVSCodeを最小化したあとしばらくすると進みが遅くなる？
+    model.fit(train_dataset, validation_data=val_dataset, epochs=args.epoch, verbose=2, callbacks=[
               tensorboard_callback, reduce_lr, cp_callback_all, cp_callback_best, early_stop_callback])
 
 
