@@ -130,6 +130,13 @@ public:
         return planes[c];
     }
 
+    void set_pybind11(BoardPlane black, BoardPlane white, Color turn)
+    {
+        planes[BLACK] = black;
+        planes[WHITE] = white;
+        _turn = turn;
+    }
+
     void set_hirate()
     {
         planes[0] = planes[1] = 0;

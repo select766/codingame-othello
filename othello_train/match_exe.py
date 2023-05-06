@@ -42,8 +42,10 @@ def run_one_game(args):
     # エンジンに新規ゲームの開始を伝える手段がないので、ゲームごとにプロセスを起動する
     # 同じプロセスで複数のゲームを行うと、置換表が満杯になるなどの不具合が起きる
     black_engine = args["black_engine"]
+    opening = args["opening"]
     engines = [Engine(args["engine1"]), Engine(args["engine2"])]
     board = otc.Board()
+    board.set_position_string_with_turn(opening)
     for i, engine in enumerate(engines):
         color = i ^ black_engine
         engine.writeline(f"{color}")  # my_color
@@ -52,7 +54,7 @@ def run_one_game(args):
     current_engine = black_engine
     move_history = []
     while not board.is_gameover():
-        engine = engines[current_engine]
+        engine = engines[board.turn() ^ black_engine]
         legal_moves_ints = board.legal_moves()
         if len(legal_moves_ints) == 0:
             move = otc.MOVE_PASS
@@ -74,6 +76,7 @@ def run_one_game(args):
         current_engine = 1 - current_engine
     winner = board.winner()
     record = {
+        "opening": opening,
         "black_engine": black_engine,
         "moves": move_history,
         "winner": winner,  # BLACK/WHITE/DRAW
@@ -88,6 +91,12 @@ class MatchExe:
         self.games = args.games
         self.out = args.out
         self.parallel = args.parallel
+        if args.opening:
+            with open(args.opening) as f:
+                self.opening = [l.rstrip() for l in f.readlines()]
+        else:
+            # デフォルトの開始局面
+            self.opening = ["---------------------------OX------XO--------------------------- b"]
 
     def run(self) -> None:
         args_list = []
@@ -96,6 +105,7 @@ class MatchExe:
                 "black_engine": game % 2,
                 "engine1": self.engine1,
                 "engine2": self.engine2,
+                "opening": self.opening[game % len(self.opening)],
             })
         with Pool(self.parallel) as p:
             records = p.map(run_one_game, args_list)
@@ -135,6 +145,7 @@ def main():
     parser.add_argument("--out", help="output json file", type=argparse.FileType('w'),
                         default=sys.stdout)
     parser.add_argument("--parallel", type=int, default=1)
+    parser.add_argument("--opening", help="opening board list file")
     args = parser.parse_args()
     MatchExe(args).run()
 
